@@ -1,0 +1,15 @@
+.dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.dashboard__header h1 {
+  font-size: var(--font-size-xxl);
+  color: var(--color-green);
+}
+
+.dashboard__header p {
+  color: var(--color-text-light);
+  margin-top: 4px;
+}

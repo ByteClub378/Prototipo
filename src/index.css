@@ -1,0 +1,71 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  /* Cores principais */
+  --color-green: #2e7d32;
+  --color-green-light: #4caf50;
+  --color-green-bg: #e8f5e9;
+
+  --color-yellow: #f9a825;
+  --color-yellow-light: #ffca28;
+  --color-yellow-bg: #fff8e1;
+
+  --color-blue: #1565c0;
+  --color-blue-light: #42a5f5;
+  --color-blue-bg: #e3f2fd;
+
+  --color-error: #e53935;
+  --color-error-bg: #ffebee;
+
+  --color-white: #ffffff;
+  --color-bg: #f5f7f5;
+  --color-text: #263238;
+  --color-text-light: #607d8b;
+  --color-border: #e0e0e0;
+
+  /* Tipografia */
+  --font-family: "Nunito", system-ui, -apple-system, sans-serif;
+  --font-size-sm: 0.875rem;
+  --font-size-base: 1rem;
+  --font-size-lg: 1.25rem;
+  --font-size-xl: 1.75rem;
+  --font-size-xxl: 2.25rem;
+
+  /* Espacamento */
+  --space-xs: 0.5rem;
+  --space-sm: 0.75rem;
+  --space-md: 1rem;
+  --space-lg: 1.5rem;
+  --space-xl: 2rem;
+
+  /* Bordas e sombras */
+  --radius-sm: 8px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --shadow-card: 0 2px 12px rgba(0, 0, 0, 0.06);
+  --shadow-card-hover: 0 4px 20px rgba(0, 0, 0, 0.1);
+
+  --sidebar-width: 260px;
+}
+
+body {
+  font-family: var(--font-family);
+  background-color: var(--color-bg);
+  color: var(--color-text);
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+}
+
+h1,
+h2,
+h3 {
+  color: var(--color-text);
+}

@@ -1,0 +1,57 @@
+.level-banner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--space-xs);
+  background-color: var(--color-yellow-bg);
+  animation: level-banner-in 0.25s ease;
+}
+
+@keyframes level-banner-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.level-banner__icon {
+  font-size: 3rem;
+}
+
+.level-banner__step {
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+  color: var(--color-text-light);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.level-banner__title {
+  font-size: var(--font-size-xl);
+  color: #8a6100;
+}
+
+.level-banner__instruction {
+  color: var(--color-text);
+  max-width: 420px;
+}
+
+.level-banner__button {
+  margin-top: var(--space-sm);
+  background-color: var(--color-green);
+  color: var(--color-white);
+  font-weight: 800;
+  padding: var(--space-sm) var(--space-xl);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-base);
+  transition: transform 0.12s ease;
+}
+
+.level-banner__button:hover {
+  transform: translateY(-2px);
+}

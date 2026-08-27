@@ -1,0 +1,24 @@
+.new-mission-button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-xs);
+  background-color: var(--color-yellow);
+  color: #5a3d00;
+  font-weight: 800;
+  font-size: var(--font-size-base);
+  padding: var(--space-md);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+
+.new-mission-button:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-card-hover);
+}
+
+.new-mission-button:active {
+  transform: translateY(0);
+}

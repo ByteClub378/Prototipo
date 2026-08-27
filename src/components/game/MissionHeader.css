@@ -1,0 +1,25 @@
+.mission-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: var(--color-green-bg);
+  border-radius: var(--radius-md);
+  padding: var(--space-lg);
+  gap: var(--space-md);
+}
+
+.mission-header__title {
+  font-size: var(--font-size-lg);
+  color: var(--color-green);
+  margin-bottom: 4px;
+}
+
+.mission-header__instruction {
+  color: var(--color-text);
+  font-size: var(--font-size-base);
+}
+
+.mission-header__character {
+  font-size: 2.5rem;
+  flex-shrink: 0;
+}

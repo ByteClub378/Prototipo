@@ -1,0 +1,17 @@
+.placeholder-page {
+  background-color: var(--color-white);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+  padding: var(--space-xl);
+  text-align: center;
+}
+
+.placeholder-page h1 {
+  font-size: var(--font-size-xl);
+  margin-bottom: var(--space-sm);
+  color: var(--color-green);
+}
+
+.placeholder-page p {
+  color: var(--color-text-light);
+}
