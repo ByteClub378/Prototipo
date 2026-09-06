@@ -8,6 +8,7 @@ const NAV_ITEMS = [
   { to: "/medalhas", label: "Medalhas", icon: "🏅" },
   { to: "/dicionario", label: "Dicionário", icon: "📖" },
   { to: "/aventuras", label: "Aventuras", icon: "🧭" },
+  { to: "/creditos", label: "Créditos", icon: "🎓" },
 ];
 
 function Sidebar() {

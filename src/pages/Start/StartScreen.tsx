@@ -36,7 +36,7 @@ function StartScreen() {
 
         <p className="start-screen__subtitle">Explore as 5 regiões do Brasil!</p>
 
-        <div className="start-screen__explorer">🧑‍🚀</div>
+        <div className="start-screen__explorer">🐒</div>
 
         <div className="start-screen__menu">
           <button
