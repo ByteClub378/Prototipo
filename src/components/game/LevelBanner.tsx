@@ -1,9 +1,16 @@
-import type { NorthLevelConfig } from "../../data/missions/northLevels";
 import GameCard from "../ui/GameCard";
 import "./LevelBanner.css";
+// import type { NorthLevelConfig } from "../../data/missions/northLevels";
+
+interface LevelBannerLevel {
+  id: number;
+  title: string;
+  instruction: string;
+  bannerIcon: string;
+}
 
 interface LevelBannerProps {
-  level: NorthLevelConfig;
+  level: LevelBannerLevel; // Se preferir, substitua 'LevelBannerLevel' por 'NorthLevelConfig'
   totalLevels: number;
   onStart: () => void;
 }

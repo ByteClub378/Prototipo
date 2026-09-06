@@ -4,23 +4,44 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "start": "node backend/scripts/start.js",
     "dev": "vite",
+    "dev:all": "concurrently --kill-others --names BACKEND,FRONTEND --prefix-colors green,cyan \"npm start\" \"npm run dev\"",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "dev:backend": "node --watch backend/src/server.js",
+    "start:backend": "node backend/src/server.js",
+    "lint:backend": "node backend/scripts/check-syntax.js",
+    "test:backend": "vitest run backend/src",
+    "build:backend": "npm run lint:backend",
+    "db:migrate": "node backend/src/database/migrate.js",
+    "db:seed": "node backend/src/database/seed.js",
+    "db:cleanup": "node backend/src/database/cleanup.js"
   },
   "dependencies": {
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "express-rate-limit": "^8.2.1",
+    "helmet": "^8.1.0",
+    "mysql2": "^3.15.3",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
-    "react-router-dom": "^7.18.2"
+    "react-router-dom": "^7.18.2",
+    "zod": "^4.1.12"
   },
   "devDependencies": {
     "@types/node": "^24.13.3",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
     "@vitejs/plugin-react": "^6.1.0",
+    "concurrently": "^9.2.1",
     "oxlint": "^1.79.0",
+    "supertest": "^7.1.4",
     "typescript": "~6.0.2",
-    "vite": "^8.2.2"
+    "vite": "^8.2.2",
+    "vitest": "^4.0.13"
   }
 }

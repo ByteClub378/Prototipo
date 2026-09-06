@@ -19,7 +19,45 @@
   font-size: var(--font-size-base);
 }
 
+.mission-header__logo {
+  width: 58px;
+  height: 58px;
+  object-fit: contain;
+  flex-shrink: 0;
+  animation: mission-logo-spin 8s linear infinite;
+}
+
 .mission-header__character {
   font-size: 2.5rem;
   flex-shrink: 0;
+}
+
+@keyframes mission-logo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 600px) {
+  .mission-header {
+    padding: var(--space-md);
+  }
+
+  .mission-header__logo {
+    width: 44px;
+    height: 44px;
+  }
+
+  .mission-header__character {
+    font-size: 2rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mission-header__logo {
+    animation: none;
+  }
 }

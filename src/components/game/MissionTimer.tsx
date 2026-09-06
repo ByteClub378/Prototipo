@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import "./MissionTimer.css";
 
 interface MissionTimerProps {
@@ -16,15 +16,26 @@ function formatTime(totalSeconds: number) {
 function MissionTimer({ durationSeconds, isActive, onExpire }: MissionTimerProps) {
   const [secondsLeft, setSecondsLeft] = useState(durationSeconds);
 
+  // Garante uma única fonte de verdade: onExpire dispara só uma vez por
+  // instância do timer, mesmo que o componente pai re-renderize.
+  const hasExpiredRef = useRef(false);
+  const onExpireRef = useRef(onExpire);
+
+  useEffect(() => {
+    onExpireRef.current = onExpire;
+  }, [onExpire]);
+
   useEffect(() => {
     setSecondsLeft(durationSeconds);
+    hasExpiredRef.current = false;
   }, [durationSeconds]);
 
   useEffect(() => {
-    if (!isActive) return;
+    if (!isActive || hasExpiredRef.current) return;
 
     if (secondsLeft <= 0) {
-      onExpire();
+      hasExpiredRef.current = true;
+      onExpireRef.current();
       return;
     }
 
@@ -33,7 +44,7 @@ function MissionTimer({ durationSeconds, isActive, onExpire }: MissionTimerProps
     }, 1000);
 
     return () => clearTimeout(timeoutId);
-  }, [isActive, secondsLeft, onExpire]);
+  }, [isActive, secondsLeft]);
 
   const isLow = secondsLeft <= 10;
 

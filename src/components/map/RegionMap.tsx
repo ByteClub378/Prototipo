@@ -13,14 +13,22 @@ const STATUS_BADGE: Record<RegionStatus, string> = {
 
 const LOCKED_COLOR = "#B0BEC5";
 
+// Usar um dicionário de rotas facilita a adição de novas regiões no futuro
+const REGION_ROUTES: Partial<Record<string, string>> = {
+  norte: "/missao/norte",
+  nordeste: "/missao/nordeste",
+};
+
 function RegionMap() {
   const navigate = useNavigate();
   const { getStatus, bonusUnlocked } = useProgress();
 
   function handleRegionClick(regionId: string, status: RegionStatus) {
     if (status === "locked") return;
-    if (regionId === "norte") {
-      navigate("/missao/norte");
+    
+    const route = REGION_ROUTES[regionId];
+    if (route) {
+      navigate(route);
     }
   }
 
@@ -47,7 +55,13 @@ function RegionMap() {
               onClick={() => handleRegionClick(region.id, status)}
               tabIndex={isClickable ? 0 : -1}
               role={isClickable ? "button" : undefined}
-              aria-label={`${region.name}: ${status === "locked" ? "bloqueada" : status === "completed" ? "concluída" : "disponível"}`}
+              aria-label={`${region.name}: ${
+                status === "locked"
+                  ? "bloqueada"
+                  : status === "completed"
+                  ? "concluída"
+                  : "disponível"
+              }`}
               onKeyDown={(event) => {
                 if ((event.key === "Enter" || event.key === " ") && isClickable) {
                   handleRegionClick(region.id, status);
