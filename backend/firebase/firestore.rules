@@ -1,0 +1,11 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Todo acesso ocorre pelo backend com Firebase Admin SDK.
+    // Aplicações cliente não têm acesso direto ao Firestore.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

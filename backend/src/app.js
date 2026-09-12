@@ -3,7 +3,7 @@ import cors from "cors";
 import express from "express";
 import helmet from "helmet";
 import { env } from "./config/env.js";
-import { checkDatabase } from "./database/pool.js";
+import { checkDatabase } from "./database/firebase.js";
 import { errorHandler, notFound } from "./middleware/errors.js";
 import apiRouter from "./routes/api.js";
 export const app = express();
