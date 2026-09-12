@@ -83,3 +83,35 @@
     justify-content: center;
   }
 }
+
+@media (max-width: 600px) {
+  .sidebar {
+    width: 100%;
+    min-width: 0;
+    height: auto;
+    position: static;
+    padding: var(--space-sm);
+    gap: var(--space-sm);
+  }
+
+  .sidebar__logo {
+    justify-content: center;
+  }
+
+  .sidebar__nav {
+    flex-direction: row;
+    overflow-x: auto;
+    gap: var(--space-xs);
+    padding-bottom: 2px;
+  }
+
+  .sidebar__nav-item {
+    flex: 0 0 48px;
+    min-height: 44px;
+    padding: var(--space-xs);
+  }
+
+  .sidebar__footer {
+    padding-top: var(--space-sm);
+  }
+}

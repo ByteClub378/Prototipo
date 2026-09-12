@@ -5,12 +5,23 @@
 
 .app-layout__content {
   flex: 1;
+  min-width: 0;
+  width: 100%;
   padding: var(--space-xl);
-  max-width: 1100px;
 }
 
 @media (max-width: 900px) {
   .app-layout__content {
     padding: var(--space-md);
+  }
+}
+
+@media (max-width: 600px) {
+  .app-layout {
+    flex-direction: column;
+  }
+
+  .app-layout__content {
+    padding: var(--space-md) var(--space-sm);
   }
 }

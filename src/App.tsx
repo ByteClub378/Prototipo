@@ -6,6 +6,10 @@ import Medals from "./pages/Medals/Medals";
 import Dictionary from "./pages/Dictionary/Dictionary";
 import Adventures from "./pages/Adventures/Adventures";
 import NorthPhase from "./pages/phases/North/NorthPhase";
+import NordestePhase from "./pages/phases/northeast/NordestePhase";
+import CreditsScreen from "./pages/Credits/CreditsScreen";
+
+
 
 function App() {
   return (
@@ -18,6 +22,8 @@ function App() {
         <Route path="/dicionario" element={<Dictionary />} />
         <Route path="/aventuras" element={<Adventures />} />
         <Route path="/missao/norte" element={<NorthPhase />} />
+        <Route path="/missao/nordeste" element={<NordestePhase />} />
+        <Route path="/creditos" element={<CreditsScreen />} />
       </Route>
     </Routes>
   );
