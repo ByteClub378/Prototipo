@@ -12,10 +12,13 @@ const router = Router();
 const sessions = new SessionService(new SessionRepository(db));
 const games = new GameService(new GameRepository());
 const auth = requireSession(sessions);
+
+const isProduction = env.NODE_ENV === "production";
+
 const cookieOptions = {
     httpOnly: true,
-    secure: env.NODE_ENV === "production",
-    sameSite: env.NODE_ENV === "production" ? "none" : "lax",
+    secure: isProduction,
+    sameSite: isProduction ? "none" : "lax",
     path: "/api/v1",
 };
 const setSessionCookie = (response, token, expiresAt) => {
