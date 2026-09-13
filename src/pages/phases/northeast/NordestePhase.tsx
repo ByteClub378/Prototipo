@@ -10,16 +10,17 @@ import ScoreDisplay from "../../../components/game/ScoreDisplay";
 import { useProgress } from "../../../context/ProgressContext";
 import { useScore } from "../../../context/ScoreContext";
 import { NORDESTE_QUESTIONS, type QuizOption } from "../../../data/missions/nordesteQuestions";
-import { NORDESTE_LEVELS } from "../../../data/missions/nordesteLevels";
+import { createNordesteLevels } from "../../../data/missions/nordesteLevels";
 import { playSuccessSound, playErrorSound, playTimeoutSound } from "../../../utils/sound";
 import { logEvent } from "../../../utils/telemetry";
 import { useAttempt } from "../../../hooks/useAttempt";
 import { POINTS_PER_CORRECT_ANSWER, POINTS_PER_INCORRECT_ANSWER } from "../../../data/scoring";
+import { shuffle } from "../../../utils/random";
 import "./NordestePhase.css";
 
 const QUESTION_MAP = new Map(NORDESTE_QUESTIONS.map((q) => [q.id, q]));
 
-const OPTION_IMAGES: Record<string, string> = {
+/* const OPTION_IMAGES: Record<string, string> = {
   acaraje: "https://images.unsplash.com/photo-1601050690597-df0568f70950?auto=format&fit=crop&w=640&q=80",
   coxinha: "https://images.unsplash.com/photo-1627054240989-42f7bb0f9d5f?auto=format&fit=crop&w=640&q=80",
   tapioca: "https://images.unsplash.com/photo-1628102491629-778571d893a3?auto=format&fit=crop&w=640&q=80",
@@ -86,7 +87,7 @@ const QUESTION_STATES: Record<string, string> = {
   "serra-da-capivara": "Piauí",
   mandacaru: "Rio Grande do Norte",
   cordel: "Sergipe",
-};
+}; */
 
 interface Feedback {
   type: "success" | "error";
@@ -94,28 +95,26 @@ interface Feedback {
   message: string;
 }
 
-function shuffle<T>(array: T[]): T[] {
-  const copy = [...array];
-  for (let i = copy.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [copy[i], copy[j]] = [copy[j], copy[i]];
-  }
-  return copy;
-}
+const MINIMUM_ACCURACY = 0.6;
 
 function NordestePhase() {
   const navigate = useNavigate();
   const { completeRegion } = useProgress();
-  const { score, addPoints } = useScore();
+  const { addPoints, resetScore } = useScore();
   const { startAttempt, completeAttempt } = useAttempt("nordeste");
   const levelScoreRef = useRef(0);
   const levelCorrectRef = useRef(0);
   const levelIncorrectRef = useRef(0);
+  const missionCorrectRef = useRef(0);
+  const missionAnsweredRef = useRef(0);
 
+  const [levels, setLevels] = useState(createNordesteLevels);
   const [levelIndex, setLevelIndex] = useState(0);
   const [showBanner, setShowBanner] = useState(true);
   const [levelComplete, setLevelComplete] = useState(false);
   const [missionComplete, setMissionComplete] = useState(false);
+  const [missionFailed, setMissionFailed] = useState(false);
+  const [finalAccuracy, setFinalAccuracy] = useState(0);
 
   const [questionOrder, setQuestionOrder] = useState<string[]>([]);
   const [currentPos, setCurrentPos] = useState(0);
@@ -137,19 +136,19 @@ function NordestePhase() {
     };
   }, []);
 
-  const level = NORDESTE_LEVELS[levelIndex];
-  const isLastLevel = levelIndex === NORDESTE_LEVELS.length - 1;
+  const level = levels[levelIndex];
+  const isLastLevel = levelIndex === levels.length - 1;
 
-  function startLevel(idx: number) {
-    const nextLevel = NORDESTE_LEVELS[idx];
-    setShowBanner(true);
+  function startLevel(idx: number, showLevelBanner = idx === 0) {
+    const nextLevel = levels[idx];
+    setShowBanner(showLevelBanner);
     setLevelComplete(false);
     setCurrentPos(0);
     setFeedback(null);
     setSelectedOptionId(null);
     setIsResolving(false);
     setTimerNonce((n) => n + 1);
-    setQuestionOrder(nextLevel.shuffleQuestions ? shuffle(nextLevel.questionIds) : nextLevel.questionIds);
+    setQuestionOrder(nextLevel.questionIds);
     levelScoreRef.current = 0;
     levelCorrectRef.current = 0;
     levelIncorrectRef.current = 0;
@@ -168,16 +167,53 @@ function NordestePhase() {
       incorrectAnswers: levelIncorrectRef.current,
     });
     if (isLastLevel) {
-      completeRegion("nordeste");
-      setMissionComplete(true);
+      const answered = missionAnsweredRef.current;
+      const correct = missionCorrectRef.current;
+      const accuracy = answered > 0 ? correct / answered : 0;
+
+      setFinalAccuracy(accuracy);
+      if (accuracy >= MINIMUM_ACCURACY) {
+        completeRegion("nordeste");
+        setMissionComplete(true);
+      } else {
+        setMissionFailed(true);
+      }
     } else {
-      setLevelComplete(true);
+      setLevelIndex((idx) => idx + 1);
     }
   }
 
   function handleStartLevel() {
     setShowBanner(false);
+    if (levelIndex === 0) {
+      missionCorrectRef.current = 0;
+      missionAnsweredRef.current = 0;
+      setMissionFailed(false);
+      setFinalAccuracy(0);
+    }
     startAttempt(level.id);
+  }
+
+  function restartMission() {
+    const nextLevels = createNordesteLevels();
+    resetScore();
+    setLevels(nextLevels);
+    missionCorrectRef.current = 0;
+    missionAnsweredRef.current = 0;
+    levelScoreRef.current = 0;
+    levelCorrectRef.current = 0;
+    levelIncorrectRef.current = 0;
+    setLevelIndex(0);
+    setQuestionOrder(nextLevels[0].questionIds);
+    setCurrentPos(0);
+    setMissionFailed(false);
+    setMissionComplete(false);
+    setFinalAccuracy(0);
+    setFeedback(null);
+    setIsResolving(false);
+    setSelectedOptionId(null);
+    setShowBanner(true);
+    setTimerNonce((nonce) => nonce + 1);
   }
 
   function advanceQuestion() {
@@ -200,20 +236,26 @@ function NordestePhase() {
 
   const currentOptions: QuizOption[] = useMemo(() => {
     if (!currentQuestion) return [];
-    if (!level.simpleOptions) return shuffle(currentQuestion.options);
+    const correctOption = currentQuestion.options.find((option) => option.correct);
+    const wrongOptions = shuffle(
+      currentQuestion.options.filter((option) => !option.correct),
+    );
 
-    const correct = currentQuestion.options.find((o) => o.correct);
-    const simpleWrong = currentQuestion.options.find((o) => o.simple);
-    return shuffle([correct, simpleWrong].filter(Boolean) as QuizOption[]);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentQuestionId, levelIndex]);
+    return shuffle(
+      [correctOption, ...wrongOptions.slice(0, level.optionCount - 1)].filter(
+        Boolean,
+      ) as QuizOption[],
+    );
+  }, [currentQuestion, level.optionCount]);
 
   function handleSelectOption(option: QuizOption) {
     if (!currentQuestion || isResolving) return;
 
+    missionAnsweredRef.current += 1;
     setSelectedOptionId(option.id);
 
     if (option.correct) {
+      missionCorrectRef.current += 1;
       playSuccessSound();
       addPoints(POINTS_PER_CORRECT_ANSWER);
       levelScoreRef.current += POINTS_PER_CORRECT_ANSWER;
@@ -240,11 +282,13 @@ function NordestePhase() {
   }
 
   function handleTimeout() {
-    if (!currentQuestion || !level.perQuestionTimers || isResolving) return;
+    if (!currentQuestion || isResolving) return;
+
+    missionAnsweredRef.current += 1;
 
     playTimeoutSound();
     levelIncorrectRef.current += 1;
-    const duration = level.perQuestionTimers[Math.min(currentPos, level.perQuestionTimers.length - 1)];
+    const duration = level.durationSeconds;
     logEvent({
       type: "time_expired",
       phase: "nordeste",
@@ -265,15 +309,13 @@ function NordestePhase() {
     setLevelIndex((idx) => idx + 1);
   }
 
-  const timerDuration = level.perQuestionTimers
-    ? level.perQuestionTimers[Math.min(currentPos, level.perQuestionTimers.length - 1)]
-    : null;
-  const isTimerActive = timerDuration !== null && !showBanner && !levelComplete && !missionComplete && !isResolving;
+  const timerDuration = level.durationSeconds;
+  const isTimerActive = !showBanner && !levelComplete && !missionComplete && !isResolving;
 
   return (
     <div className="nordeste-phase">
       <MissionHeader
-        title={`Nível ${level.id} de ${NORDESTE_LEVELS.length} — ${level.title}`}
+        title={`Rodada ${level.id} de ${levels.length} — ${level.title}`}
         instruction={level.instruction}
       />
 
@@ -281,17 +323,32 @@ function NordestePhase() {
 
       {missionComplete ? (
         <GameCard className="nordeste-phase__complete">
-          <h2>🏅 Medalha do Nordeste conquistada!</h2>
-          <p>Você aprendeu sobre a cultura, a gastronomia e a natureza do Nordeste brasileiro.</p>
-          <p className="nordeste-phase__final-score">⭐ Pontuação: {score}</p>
+          <span className="nordeste-phase__medal">🏅</span>
+          <h2>Medalha do Nordeste conquistada!</h2>
+          <p>Aproveitamento: {Math.round(finalAccuracy * 100)}%</p>
           <button className="nordeste-phase__back-button" onClick={() => navigate("/mapa")}>
+            Voltar ao mapa
+          </button>
+        </GameCard>
+      ) : missionFailed ? (
+        <GameCard className="nordeste-phase__failed">
+          <span className="nordeste-phase__failed-icon">🌞</span>
+          <h2>Vamos tentar novamente?</h2>
+          <p>
+            Você conseguiu {Math.round(finalAccuracy * 100)}%. Para concluir a fase,
+            é necessário alcançar pelo menos 60%.
+          </p>
+          <button className="nordeste-phase__retry-button" onClick={restartMission}>
+            Tentar nova partida
+          </button>
+          <button className="nordeste-phase__map-button" onClick={() => navigate("/mapa")}>
             Voltar ao mapa
           </button>
         </GameCard>
       ) : showBanner ? (
         <LevelBanner 
           level={level} 
-          totalLevels={NORDESTE_LEVELS.length} 
+          totalLevels={levels.length} 
           onStart={handleStartLevel} 
         />
       ) : levelComplete ? (
@@ -305,20 +362,20 @@ function NordestePhase() {
       ) : (
         currentQuestion && (
           <>
-            {isTimerActive && timerDuration !== null && (
+            {
               <MissionTimer
-                key={`${levelIndex}-${currentPos}-${timerNonce}`}
+                key={`${levelIndex}-${currentQuestionId}-${timerNonce}`}
                 durationSeconds={timerDuration}
                 isActive={isTimerActive}
                 onExpire={handleTimeout}
               />
-            )}
+            }
 
             <GameCard className="nordeste-phase__question">
               <div className="nordeste-phase__question-topline">
                 <span className="nordeste-phase__icon">{currentQuestion.icon}</span>
                 <span className="nordeste-phase__category">
-                  {QUESTION_STATES[currentQuestion.id]} · {QUESTION_CATEGORIES[currentQuestion.id] ?? "Cultura nordestina"}
+                  {currentQuestion.state} · {currentQuestion.category}
                 </span>
               </div>
               <p className="nordeste-phase__prompt">{currentQuestion.prompt}</p>
@@ -340,13 +397,11 @@ function NordestePhase() {
                       disabled={isResolving}
                     >
                       <span className="nordeste-phase__option-image-wrap">
-                        <img
-                          className="nordeste-phase__option-image"
-                          src={OPTION_IMAGES[option.id]}
-                          alt=""
-                          loading="lazy"
-                        />
-                        <span className="nordeste-phase__option-emoji">{currentQuestion.icon}</span>
+                        {option.image ? (
+                          <img className="nordeste-phase__option-image" src={option.image} alt={option.text} loading="lazy" />
+                        ) : (
+                          <span className="nordeste-phase__option-fallback" aria-hidden="true">{currentQuestion.icon}</span>
+                        )}
                       </span>
                       <span className="nordeste-phase__option-text">{option.text}</span>
                     </button>
@@ -363,7 +418,7 @@ function NordestePhase() {
       )}
 
       {!missionComplete && !showBanner && (
-        <ProgressBar current={currentPos} total={questionOrder.length} />
+        <ProgressBar current={currentPos + 1} total={questionOrder.length} />
       )}
     </div>
   );

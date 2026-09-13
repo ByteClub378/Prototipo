@@ -24,6 +24,10 @@
 }
 
 .north-phase__zone {
+  width: 100%;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
   background-color: var(--color-blue-bg);
   border: 2px dashed var(--color-blue);
   border-radius: var(--radius-md);
@@ -76,6 +80,14 @@
   cursor: grab;
   font-weight: 700;
   animation: north-item-in 0.2s ease;
+  transition: transform 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.north-phase__current-item:hover,
+.north-phase__current-item--selected {
+  transform: translateY(-5px) scale(1.025);
+  border-color: var(--color-yellow);
+  box-shadow: var(--shadow-card-hover);
 }
 
 .north-phase__current-item:active {
@@ -136,6 +148,26 @@
   cursor: grabbing;
 }
 
+.north-phase__draggable--selected {
+  outline: 4px solid var(--color-yellow);
+  transform: translateY(-4px);
+}
+
+.north-phase__zone:focus-visible,
+.north-phase__draggable:focus-visible,
+.nordeste-phase__option:focus-visible {
+  outline: 4px solid var(--color-yellow);
+  outline-offset: 3px;
+}
+
+@media (pointer: coarse) {
+  .north-phase__zone,
+  .north-phase__draggable,
+  .nordeste-phase__option {
+    min-height: 56px;
+  }
+}
+
 .north-phase__draggable-name {
   font-size: 0.7rem;
   font-weight: 600;
@@ -145,6 +177,40 @@
 .north-phase__complete {
   text-align: center;
   background-color: var(--color-yellow-bg);
+}
+
+.north-phase__medal,
+.north-phase__failed-icon {
+  font-size: 4rem;
+}
+
+.north-phase__failed {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  max-width: 620px;
+  margin-inline: auto;
+  text-align: center;
+  background: var(--color-error-bg);
+}
+
+.north-phase__retry-button,
+.north-phase__map-button {
+  padding: 0.75rem 1.5rem;
+  border-radius: var(--radius-sm);
+  font-weight: 800;
+}
+
+.north-phase__retry-button {
+  background: var(--color-green);
+  color: var(--color-white);
+}
+
+.north-phase__map-button {
+  border: 2px solid var(--color-green);
+  background: var(--color-white);
+  color: var(--color-green);
 }
 
 .north-phase__complete--timeout {

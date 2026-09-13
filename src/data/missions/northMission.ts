@@ -18,89 +18,27 @@ export const HABITATS: Habitat[] = [
   { id: "rios", name: "Rios do Norte", icon: "🌊" },
 ];
 
-// Itens principais usados nos níveis de introdução, aleatoriedade e tempo.
-export const CORE_ITEMS: MissionItem[] = [
-  {
-    id: "onca",
-    name: "Onça-pintada",
-    icon: "🐆",
-    habitatId: "floresta",
-    fact: "A onça-pintada é o maior felino das Américas e vive nas matas da Amazônia.",
-  },
-  {
-    id: "arara",
-    name: "Arara-azul",
-    icon: "🦜",
-    habitatId: "floresta",
-    fact: "A arara-azul vive nas copas das árvores da floresta amazônica.",
-  },
-  {
-    id: "peixe-boi",
-    name: "Peixe-boi",
-    icon: "🐬",
-    habitatId: "rios",
-    fact: "O peixe-boi da Amazônia vive nos rios e se alimenta de plantas aquáticas.",
-  },
-  {
-    id: "vitoria-regia",
-    name: "Vitória-régia",
-    icon: "🌸",
-    habitatId: "rios",
-    fact: "A vitória-régia é uma planta aquática gigante encontrada nos rios da região Norte.",
-  },
+export const ALL_ITEMS: MissionItem[] = [
+  { id: "onca", name: "Onça-pintada", icon: "🐆", habitatId: "floresta", fact: "A onça-pintada é o maior felino das Américas." },
+  { id: "arara", name: "Arara-vermelha", icon: "🦜", habitatId: "floresta", fact: "A arara vive e se alimenta nas árvores da floresta." },
+  { id: "preguica", name: "Bicho-preguiça", icon: "🦥", habitatId: "floresta", fact: "A preguiça passa grande parte da vida nas árvores." },
+  { id: "tucano", name: "Tucano", icon: "🐦", habitatId: "floresta", fact: "O tucano ajuda a espalhar sementes pela floresta." },
+  { id: "castanheira", name: "Castanheira", icon: "🌳", habitatId: "floresta", fact: "A castanheira produz a castanha-do-pará." },
+  { id: "seringueira", name: "Seringueira", icon: "🌿", habitatId: "floresta", fact: "Da seringueira é extraído o látex." },
+  { id: "boto", name: "Boto-cor-de-rosa", icon: "🐬", habitatId: "rios", fact: "O boto-cor-de-rosa é um golfinho de água doce." },
+  { id: "peixe-boi", name: "Peixe-boi-da-amazônia", icon: "🐋", habitatId: "rios", fact: "O peixe-boi se alimenta de plantas aquáticas." },
+  { id: "jacare", name: "Jacaré-açu", icon: "🐊", habitatId: "rios", fact: "O jacaré-açu vive em rios e lagos amazônicos." },
+  { id: "pirarucu", name: "Pirarucu", icon: "🐟", habitatId: "rios", fact: "O pirarucu é um dos maiores peixes de água doce." },
+  { id: "vitoria-regia", name: "Vitória-régia", icon: "🌸", habitatId: "rios", fact: "A vitória-régia é uma planta aquática amazônica." },
+  { id: "ariranha", name: "Ariranha", icon: "🦦", habitatId: "rios", fact: "A ariranha vive em grupos próximos aos rios." },
+  { id: "pinguim", name: "Pinguim", icon: "🐧", habitatId: null, fact: "Pinguins vivem em regiões frias e não são animais amazônicos." },
+  { id: "leao", name: "Leão", icon: "🦁", habitatId: null, fact: "O leão é nativo da África e de uma pequena área da Ásia." },
+  { id: "camelo", name: "Camelo", icon: "🐫", habitatId: null, fact: "O camelo é adaptado a ambientes secos." },
+  { id: "urso-polar", name: "Urso-polar", icon: "🐻‍❄️", habitatId: null, fact: "O urso-polar vive no Ártico." },
 ];
 
-// Itens extras, usados para dar variedade no desafio final.
-export const EXTRA_ITEMS: MissionItem[] = [
-  {
-    id: "preguica",
-    name: "Preguiça",
-    icon: "🦥",
-    habitatId: "floresta",
-    fact: "A preguiça se move bem devagar e vive nas árvores da floresta amazônica.",
-  },
-  {
-    id: "tucano",
-    name: "Tucano",
-    icon: "🦤",
-    habitatId: "floresta",
-    fact: "O tucano tem um bico grande e colorido e vive nas árvores da floresta.",
-  },
-  {
-    id: "boto",
-    name: "Boto-cor-de-rosa",
-    icon: "🐳",
-    habitatId: "rios",
-    fact: "O boto-cor-de-rosa é um golfinho de água doce que vive nos rios amazônicos.",
-  },
-  {
-    id: "jacare",
-    name: "Jacaré-açu",
-    icon: "🐊",
-    habitatId: "rios",
-    fact: "O jacaré-açu é um dos maiores répteis dos rios da Amazônia.",
-  },
-];
-
-// Distratores: não pertencem a nenhum ambiente da região Norte.
-export const DISTRACTOR_ITEMS: MissionItem[] = [
-  {
-    id: "pinguim",
-    name: "Pinguim",
-    icon: "🐧",
-    habitatId: null,
-    fact: "O pinguim vive em regiões geladas, bem diferente da Amazônia quente e úmida.",
-  },
-  {
-    id: "leao",
-    name: "Leão",
-    icon: "🦁",
-    habitatId: null,
-    fact: "O leão vive nas savanas da África e não faz parte da fauna brasileira.",
-  },
-];
-
-export const ALL_ITEMS: MissionItem[] = [...CORE_ITEMS, ...EXTRA_ITEMS, ...DISTRACTOR_ITEMS];
+export const NATIVE_ITEMS = ALL_ITEMS.filter((item) => item.habitatId !== null);
+export const DISTRACTOR_ITEMS = ALL_ITEMS.filter((item) => item.habitatId === null);
 
 const ITEM_MAP = new Map(ALL_ITEMS.map((item) => [item.id, item]));
 

@@ -89,6 +89,11 @@
   cursor: not-allowed;
 }
 
+.nordeste-phase__option:focus-visible {
+  outline: 4px solid var(--color-yellow);
+  outline-offset: 3px;
+}
+
 .nordeste-phase__option--correct {
   background-color: var(--color-green-bg);
   border-color: var(--color-green);
@@ -104,6 +109,40 @@
 .nordeste-phase__complete {
   text-align: center;
   background-color: var(--color-yellow-bg);
+}
+
+.nordeste-phase__medal,
+.nordeste-phase__failed-icon {
+  font-size: 4rem;
+}
+
+.nordeste-phase__failed {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  max-width: 620px;
+  margin-inline: auto;
+  text-align: center;
+  background: var(--color-error-bg);
+}
+
+.nordeste-phase__retry-button,
+.nordeste-phase__map-button {
+  padding: 0.75rem 1.5rem;
+  border-radius: var(--radius-sm);
+  font-weight: 800;
+}
+
+.nordeste-phase__retry-button {
+  background: var(--color-green);
+  color: var(--color-white);
+}
+
+.nordeste-phase__map-button {
+  border: 2px solid var(--color-green);
+  background: var(--color-white);
+  color: var(--color-green);
 }
 
 .nordeste-phase__complete h2 {
@@ -139,6 +178,14 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.nordeste-phase__option-fallback {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  font-size: clamp(2.75rem, 8vw, 4.5rem);
 }
 
 .nordeste-phase__option-emoji {
