@@ -8,12 +8,14 @@ import FeedbackMessage from "../../../components/game/FeedbackMessage";
 import MissionTimer from "../../../components/game/MissionTimer";
 import { useProgress } from "../../../context/ProgressContext";
 import { HABITATS, getItemById, type MissionItem } from "../../../data/missions/northMission";
-import { NORTH_LEVELS } from "../../../data/missions/northLevels";
+import { createNorthLevels } from "../../../data/missions/northLevels";
 import { playSuccessSound, playErrorSound, playTimeoutSound } from "../../../utils/sound";
 import { logEvent } from "../../../utils/telemetry";
 import { POINTS_PER_CORRECT_ANSWER, POINTS_PER_INCORRECT_ANSWER } from "../../../data/scoring";
 import { useScore } from "../../../context/ScoreContext";
 import { useAttempt } from "../../../hooks/useAttempt";
+import { useSession } from "../../../context/SessionContext";
+import { shuffle } from "../../../utils/random";
 import ScoreDisplay from "../../../components/game/ScoreDisplay";
 import "./NorthPhase.css";
 
@@ -30,47 +32,42 @@ interface Zone {
   icon: string;
 }
 
-function shuffle<T>(array: T[]): T[] {
-  const copy = [...array];
-  for (let i = copy.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [copy[i], copy[j]] = [copy[j], copy[i]];
-  }
-  return copy;
-}
+const MINIMUM_ACCURACY = 0.6;
 
 function NorthPhase() {
   const navigate = useNavigate();
   const { completeRegion } = useProgress();
-  const { score, addPoints } = useScore();
+  const { addPoints, resetScore } = useScore();
   const { startAttempt, completeAttempt } = useAttempt("norte");
+  const { refreshState } = useSession();
 
   // Contadores da tentativa ATUAL (resetam a cada nível) — usados só pro
   // PATCH /attempts/{id}/complete, não se confundem com o placar global.
   const levelScoreRef = useRef(0);
   const levelCorrectRef = useRef(0);
   const levelIncorrectRef = useRef(0);
+  const missionCorrectRef = useRef(0);
+  const missionAnsweredRef = useRef(0);
 
+  const [levels, setLevels] = useState(createNorthLevels);
   const [levelIndex, setLevelIndex] = useState(0);
   const [showBanner, setShowBanner] = useState(true);
   const [levelComplete, setLevelComplete] = useState(false);
   const [missionComplete, setMissionComplete] = useState(false);
+  const [missionFailed, setMissionFailed] = useState(false);
+  const [finalAccuracy, setFinalAccuracy] = useState(0);
 
-  // Modo tray (nível 1, não sequencial)
-  const [placedIds, setPlacedIds] = useState<Set<string>>(new Set());
-
-  // Modo sequencial (níveis 2 a 6)
+  // Modo sequencial das três rodadas.
   const [itemOrder, setItemOrder] = useState<string[]>([]);
   const [currentItemPos, setCurrentItemPos] = useState(0);
-  const [roundIdx, setRoundIdx] = useState(0);
 
   const [feedback, setFeedback] = useState<Feedback | null>(null);
-  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [isItemSelected, setIsItemSelected] = useState(false);
   const [timerNonce, setTimerNonce] = useState(0);
   const [isResolving, setIsResolving] = useState(false);
 
-  const level = NORTH_LEVELS[levelIndex];
-  const isLastLevel = levelIndex === NORTH_LEVELS.length - 1;
+  const level = levels[levelIndex];
+  const isLastLevel = levelIndex === levels.length - 1;
 
   const advanceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -89,19 +86,16 @@ function NorthPhase() {
     };
   }, []);
 
-  const levelItems = useMemo(() => level.itemIds.map(getItemById), [level]);
-
-  function startLevel(idx: number) {
-    const nextLevel = NORTH_LEVELS[idx];
-    setShowBanner(true);
+  function startLevel(idx: number, showLevelBanner = idx === 0) {
+    const nextLevel = levels[idx];
+    setShowBanner(showLevelBanner);
     setLevelComplete(false);
-    setPlacedIds(new Set());
     setCurrentItemPos(0);
-    setRoundIdx(0);
     setFeedback(null);
     setIsResolving(false);
+    setIsItemSelected(false);
     setTimerNonce((n) => n + 1);
-    setItemOrder(nextLevel.sequential ? shuffle(nextLevel.itemIds) : nextLevel.itemIds);
+    setItemOrder(nextLevel.itemIds);
     levelScoreRef.current = 0;
     levelCorrectRef.current = 0;
     levelIncorrectRef.current = 0;
@@ -112,71 +106,89 @@ function NorthPhase() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [levelIndex]);
 
-    function finishLevel() {
+  async function finishLevel() {
     logEvent({ type: "level_complete", phase: "north", level: level.id });
-    completeAttempt({
+    const result = await completeAttempt({
       score: levelScoreRef.current,
       correctAnswers: levelCorrectRef.current,
       incorrectAnswers: levelIncorrectRef.current,
     });
+
+    if (!result) {
+      setFeedback({
+        type: "error",
+        title: "Não foi possível salvar",
+        message: "Confira sua conexão e tente novamente.",
+      });
+      setIsResolving(false);
+      return;
+    }
+
+    await refreshState();
     if (isLastLevel) {
-      completeRegion("norte");
-      setMissionComplete(true);
+      const answered = missionAnsweredRef.current;
+      const correct = missionCorrectRef.current;
+      const accuracy = answered > 0 ? correct / answered : 0;
+
+      setFinalAccuracy(accuracy);
+      if (accuracy >= MINIMUM_ACCURACY) {
+        completeRegion("norte");
+        setMissionComplete(true);
+      } else {
+        setMissionFailed(true);
+      }
     } else {
-      setLevelComplete(true);
+      setLevelIndex((idx) => idx + 1);
     }
   }
 
   function handleStartLevel() {
     setShowBanner(false);
+    if (levelIndex === 0) {
+      missionCorrectRef.current = 0;
+      missionAnsweredRef.current = 0;
+      setMissionFailed(false);
+      setFinalAccuracy(0);
+    }
     startAttempt(level.id);
+  }
+
+  function restartMission() {
+    const nextLevels = createNorthLevels();
+    resetScore();
+    setLevels(nextLevels);
+    missionCorrectRef.current = 0;
+    missionAnsweredRef.current = 0;
+    levelScoreRef.current = 0;
+    levelCorrectRef.current = 0;
+    levelIncorrectRef.current = 0;
+    setLevelIndex(0);
+    setItemOrder(nextLevels[0].itemIds);
+    setCurrentItemPos(0);
+    setMissionFailed(false);
+    setMissionComplete(false);
+    setFinalAccuracy(0);
+    setFeedback(null);
+    setIsResolving(false);
+    setIsItemSelected(false);
+    setShowBanner(true);
+    setTimerNonce((nonce) => nonce + 1);
   }
 
   function goToNextLevel() {
     setLevelIndex((idx) => idx + 1);
   }
 
-  // ---------- Nível 1: Tray ----------
-
-  function handleTrayDrop(habitatId: string) {
-    if (!draggingId) return;
-    const item = getItemById(draggingId);
-
-    if (item.habitatId === habitatId) {
-      playSuccessSound();
-      addPoints(POINTS_PER_CORRECT_ANSWER);
-      levelScoreRef.current += POINTS_PER_CORRECT_ANSWER;
-      levelCorrectRef.current += 1;
-      setFeedback({ type: "success", title: "Muito bem!", message: item.fact });
-      setPlacedIds((prev) => {
-        const next = new Set(prev).add(item.id);
-        if (next.size === level.itemIds.length) {
-          setTimeout(finishLevel, 400);
-        }
-        return next;
-      });
-    } else {
-      playErrorSound();
-      addPoints(POINTS_PER_INCORRECT_ANSWER);
-      levelIncorrectRef.current += 1;
-      levelScoreRef.current = Math.max(0, levelScoreRef.current + POINTS_PER_INCORRECT_ANSWER);
-      setFeedback({
-        type: "error",
-        title: "Quase!",
-        message: "Esse elemento não pertence a esse ambiente. Observe novamente e tente outra vez.",
-      });
-    }
-    setDraggingId(null);
-  }
-
-  // ---------- Níveis 2 a 6: Sequencial ----------
+  // ---------- Rodadas sequenciais ----------
 
   const currentItemId = itemOrder[currentItemPos];
   const currentItem: MissionItem | undefined = currentItemId ? getItemById(currentItemId) : undefined;
-  const targetHabitat = level.mechanic === "inverted" ? HABITATS[roundIdx] : undefined;
+  const targetHabitat = level.mechanic === "inverted"
+    ? HABITATS[currentItemPos % HABITATS.length]
+    : undefined;
 
-  const zones: Zone[] =
-    level.mechanic === "inverted"
+  const zones = useMemo<Zone[]>(
+    () => level.mechanic === "inverted"
       ? [
           { id: "sim", name: "Pertence", icon: "✅" },
           { id: "nao", name: "Não pertence", icon: "❌" },
@@ -186,7 +198,9 @@ function NorthPhase() {
           ...(level.includeDistractors
             ? [{ id: "nenhum", name: "Não pertence a nenhum", icon: "🚫" }]
             : []),
-        ];
+        ],
+    [level.includeDistractors, level.mechanic],
+  );
 
   function getCorrectZoneId(item: MissionItem): string {
     if (level.mechanic === "inverted" && targetHabitat) {
@@ -201,29 +215,23 @@ function NorthPhase() {
     const nextPos = currentItemPos + 1;
     if (nextPos < itemOrder.length) {
       setCurrentItemPos(nextPos);
+      setIsItemSelected(false);
       setTimerNonce((n) => n + 1);
       setFeedback(null);
       return;
     }
 
     // Fim da lista de itens desta rodada
-    if (level.mechanic === "inverted" && roundIdx < HABITATS.length - 1) {
-      setRoundIdx((r) => r + 1);
-      setItemOrder(shuffle(level.itemIds));
-      setCurrentItemPos(0);
-      setTimerNonce((n) => n + 1);
-      setFeedback(null);
-      return;
-    }
-
     finishLevel();
   }
 
   function handleSequentialDrop(zoneId: string) {
     if (!currentItem || isResolving) return;
     const correctZoneId = getCorrectZoneId(currentItem);
+    missionAnsweredRef.current += 1;
 
     if (zoneId === correctZoneId) {
+      missionCorrectRef.current += 1;
       playSuccessSound();
       addPoints(POINTS_PER_CORRECT_ANSWER);
       levelScoreRef.current += POINTS_PER_CORRECT_ANSWER;
@@ -247,15 +255,16 @@ function NorthPhase() {
       setIsResolving(true);
       scheduleAdvance(advanceSequentialItem, 1000);
     }
-    setDraggingId(null)
   }
 
   function handleItemTimeout() {
-    if (!currentItem || !level.perItemTimers || isResolving) return;
+    if (!currentItem || isResolving) return;
+
+    missionAnsweredRef.current += 1;
 
     playTimeoutSound();
     levelIncorrectRef.current += 1;
-    const duration = level.perItemTimers[Math.min(currentItemPos, level.perItemTimers.length - 1)];
+    const duration = level.durationSeconds;
     logEvent({
       type: "time_expired",
       phase: "north",
@@ -273,21 +282,28 @@ function NorthPhase() {
     scheduleAdvance(advanceSequentialItem, 1400);
   }
 
-  function handleDragStart(itemId: string) {
-    setDraggingId(itemId);
-  }
-
-  function handleDragOver(event: DragEvent<HTMLDivElement>) {
+  function handleDragOver(event: DragEvent<HTMLElement>) {
     event.preventDefault();
   }
 
-  const timerDuration = level.perItemTimers
-    ? level.perItemTimers[Math.min(currentItemPos, level.perItemTimers.length - 1)]
-    : null;
-  const isTimerActive = timerDuration !== null && !showBanner && !levelComplete && !missionComplete;
+  function handleItemDragStart() {
+    setIsItemSelected(true);
+  }
 
-  const progressCurrent = level.sequential ? currentItemPos : placedIds.size;
-  const progressTotal = level.sequential ? itemOrder.length : level.itemIds.length;
+  function handleItemDragEnd() {
+    setIsItemSelected(false);
+  }
+
+  const timerDuration = level.durationSeconds;
+  const isTimerActive = !showBanner && !levelComplete && !missionComplete && !isResolving;
+
+  const progressCurrent = currentItemPos + 1;
+  const progressTotal = itemOrder.length;
+
+  const shuffledZones = useMemo(
+    () => currentItemId ? shuffle(zones) : zones,
+    [zones, currentItemId],
+  );
 
   const missionInstruction =
     level.mechanic === "inverted" && targetHabitat
@@ -297,24 +313,39 @@ function NorthPhase() {
   return (
     <div className="north-phase">
       <MissionHeader
-        title={`Nível ${level.id} de ${NORTH_LEVELS.length} — ${level.title}`}
+        title={`Rodada ${level.id} de ${levels.length} — ${level.title}`}
         instruction={missionInstruction}
       />
       <ScoreDisplay />
 
       {missionComplete ? (
         <GameCard className="north-phase__complete">
-          <h2>🏅 Medalha do Norte conquistada!</h2>
-          <p>Você completou todos os desafios e aprendeu sobre a fauna e a flora da região Norte.</p>
-          <p className="north-phase__final-score">⭐ Pontuação: {score}</p>
+          <span className="north-phase__medal">🏅</span>
+          <h2>Medalha do Norte conquistada!</h2>
+          <p>Aproveitamento: {Math.round(finalAccuracy * 100)}%</p>
           <button className="north-phase__back-button" onClick={() => navigate("/mapa")}>
+            Voltar ao mapa
+          </button>
+        </GameCard>
+      ) : missionFailed ? (
+        <GameCard className="north-phase__failed">
+          <span className="north-phase__failed-icon">🌱</span>
+          <h2>Vamos tentar novamente?</h2>
+          <p>
+            Você conseguiu {Math.round(finalAccuracy * 100)}%. Para liberar o Nordeste,
+            é necessário alcançar pelo menos 60%.
+          </p>
+          <button className="north-phase__retry-button" onClick={restartMission}>
+            Tentar nova partida
+          </button>
+          <button className="north-phase__map-button" onClick={() => navigate("/mapa")}>
             Voltar ao mapa
           </button>
         </GameCard>
       ) : showBanner ? (
         <LevelBanner
           level={level}
-          totalLevels={NORTH_LEVELS.length}
+          totalLevels={levels.length}
           onStart={handleStartLevel}
         />
       ) : levelComplete ? (
@@ -327,85 +358,46 @@ function NorthPhase() {
         </GameCard>
       ) : (
         <>
-          {isTimerActive && timerDuration !== null && (
+          {
             <MissionTimer
-              key={`${levelIndex}-${roundIdx}-${currentItemPos}-${timerNonce}`}
+              key={`${levelIndex}-${currentItemId}-${currentItemPos}-${timerNonce}`}
               durationSeconds={timerDuration}
               isActive={isTimerActive}
               onExpire={handleItemTimeout}
             />
-          )}
+          }
 
-          {!level.sequential ? (
-            <div className="north-phase__board">
-              <div className="north-phase__zones">
-                {zones.map((zone) => (
-                  <div
-                    key={zone.id}
-                    className="north-phase__zone"
-                    onDragOver={handleDragOver}
-                    onDrop={() => handleTrayDrop(zone.id)}
-                  >
-                    <span className="north-phase__zone-icon">{zone.icon}</span>
-                    <span className="north-phase__zone-name">{zone.name}</span>
-                    <div className="north-phase__zone-items">
-                      {levelItems
-                        .filter((item) => placedIds.has(item.id) && item.habitatId === zone.id)
-                        .map((item) => (
-                          <span key={item.id} className="north-phase__zone-item">
-                            {item.icon}
-                          </span>
-                        ))}
-                    </div>
-                    <span className="north-phase__zone-hint">Solte aqui</span>
-                  </div>
-                ))}
-              </div>
-
-              <div className="north-phase__tray">
-                {levelItems
-                  .filter((item) => !placedIds.has(item.id))
-                  .map((item) => (
-                    <div
-                      key={item.id}
-                      className="north-phase__draggable"
-                      draggable
-                      onDragStart={() => handleDragStart(item.id)}
-                    >
-                      <span>{item.icon}</span>
-                      <span className="north-phase__draggable-name">{item.name}</span>
-                    </div>
-                  ))}
-              </div>
-            </div>
-          ) : (
-            currentItem && (
+          {currentItem && (
               <div className="north-phase__board north-phase__board--single">
                 <div
-                  className="north-phase__current-item"
+                  className={`north-phase__current-item ${isItemSelected ? "north-phase__current-item--selected" : ""}`}
                   draggable={!isResolving}
-                  onDragStart={() => handleDragStart(currentItem.id)}
+                  onClick={() => setIsItemSelected((selected) => !selected)}
+                  onDragStart={handleItemDragStart}
+                  onDragEnd={handleItemDragEnd}
+                  aria-pressed={isItemSelected}
                 >
                   <span className="north-phase__current-icon">{currentItem.icon}</span>
                   <span>{currentItem.name}</span>
                 </div>
 
                 <div className="north-phase__zones north-phase__zones--row">
-                  {zones.map((zone) => (
-                    <div
+                  {shuffledZones.map((zone) => (
+                    <button
                       key={zone.id}
                       className="north-phase__zone"
                       onDragOver={handleDragOver}
                       onDrop={() => handleSequentialDrop(zone.id)}
+                      onClick={() => handleSequentialDrop(zone.id)}
+                      aria-label={`Enviar item para ${zone.name}`}
                     >
                       <span className="north-phase__zone-icon">{zone.icon}</span>
                       <span className="north-phase__zone-name">{zone.name}</span>
                       <span className="north-phase__zone-hint">Solte aqui</span>
-                    </div>
+                    </button>
                   ))}
                 </div>
               </div>
-            )
           )}
 
           {feedback && (

@@ -12,10 +12,7 @@ function run(script) {
   if (result.status !== 0) process.exit(result.status ?? 1);
 }
 
-console.log("[setup] Criando/verificando banco e aplicando migrations...");
-run("backend/src/database/migrate.js");
-
-console.log("[setup] Carregando catálogo inicial...");
+console.log("[setup] Verificando Firebase e carregando catálogo inicial...");
 run("backend/src/database/seed.js");
 
 console.log("[setup] Configuração concluída. Iniciando API...");

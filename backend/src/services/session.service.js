@@ -1,5 +1,5 @@
 import { env } from "../config/env.js";
-import { hashToken, newId, newOpaqueToken } from "../utils/crypto.js";
+import { newId, signPayload, verifyPayload } from "../utils/crypto.js";
 const expiration = () => new Date(Date.now() + env.SESSION_TTL_HOURS * 60 * 60 * 1000);
 export class SessionService {
     repository;
@@ -10,28 +10,27 @@ export class SessionService {
         if (existingToken) {
             const current = await this.authenticate(existingToken);
             if (current) {
-                await this.repository.touch(current.sessionId, current.playerId);
                 return { token: existingToken, playerId: current.publicId, expiresAt: current.expiresAt, created: false };
             }
         }
-        const token = newOpaqueToken();
         const expiresAt = expiration();
         const playerId = newId();
         const publicId = newId();
-        await this.repository.createPlayerAndSession({
-            playerId, publicId, sessionId: newId(), tokenHash: hashToken(token), expiresAt,
-        });
+        await this.repository.createPlayer({ playerId, publicId });
+        const token = this.issue({ playerId, publicId, expiresAt });
         return { token, playerId: publicId, expiresAt, created: true };
     }
     authenticate(token) {
-        if (!token || token.length < 32 || token.length > 128)
-            return Promise.resolve(null);
-        return this.repository.findActiveByTokenHash(hashToken(token));
+        const payload = verifyPayload(token, env.SESSION_SECRET);
+        if (!payload || payload.v !== 1 || !payload.pid || !payload.pub || !payload.sid || !Number.isInteger(payload.exp) || payload.exp <= Date.now()) return null;
+        return { sessionId: payload.sid, playerId: payload.pid, publicId: payload.pub, expiresAt: new Date(payload.exp) };
     }
     async refresh(record) {
-        const token = newOpaqueToken();
         const expiresAt = expiration();
-        await this.repository.rotate(record.sessionId, hashToken(token), expiresAt);
+        const token = this.issue({ playerId: record.playerId, publicId: record.publicId, expiresAt });
         return { token, expiresAt };
+    }
+    issue({ playerId, publicId, expiresAt }) {
+        return signPayload({ v: 1, sid: newId(), pid: playerId, pub: publicId, iat: Date.now(), exp: expiresAt.getTime() }, env.SESSION_SECRET);
     }
 }

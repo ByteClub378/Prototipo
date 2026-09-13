@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { rateLimit } from "express-rate-limit";
 import { env } from "../config/env.js";
-import { pool } from "../database/pool.js";
+import { db } from "../database/firebase.js";
 import { requireSession } from "../middleware/auth.js";
 import { GameRepository } from "../repositories/game.repository.js";
 import { SessionRepository } from "../repositories/session.repository.js";
@@ -9,13 +9,13 @@ import { completeAttemptSchema, GameService, startAttemptSchema } from "../servi
 import { SessionService } from "../services/session.service.js";
 import { ApiError } from "../utils/api-error.js";
 const router = Router();
-const sessions = new SessionService(new SessionRepository(pool));
+const sessions = new SessionService(new SessionRepository(db));
 const games = new GameService(new GameRepository());
 const auth = requireSession(sessions);
 const cookieOptions = {
     httpOnly: true,
     secure: env.NODE_ENV === "production",
-    sameSite: "lax",
+    sameSite: env.NODE_ENV === "production" ? "none" : "lax",
     path: "/api/v1",
 };
 const setSessionCookie = (response, token, expiresAt) => {
@@ -31,7 +31,7 @@ router.post("/session/bootstrap", sessionLimiter, async (request, response) => {
     });
 });
 router.post("/session/refresh", sessionLimiter, async (request, response) => {
-    const current = await sessions.authenticate(request.cookies?.[env.COOKIE_NAME]);
+    const current = sessions.authenticate(request.cookies?.[env.COOKIE_NAME]);
     if (!current)
         throw new ApiError(401, "SESSION_INVALID", "Sessão ausente, expirada ou inválida.");
     const result = await sessions.refresh(current);
@@ -39,7 +39,6 @@ router.post("/session/refresh", sessionLimiter, async (request, response) => {
     response.json({ data: { playerId: current.publicId, expiresAt: result.expiresAt.toISOString() } });
 });
 router.delete("/session", auth, async (request, response) => {
-    await new SessionRepository(pool).revoke(request.auth.sessionId);
     response.clearCookie(env.COOKIE_NAME, cookieOptions);
     response.status(204).send();
 });
@@ -48,6 +47,9 @@ router.get("/me/progress", auth, async (request, response) => {
 });
 router.get("/me/medals", auth, async (request, response) => {
     response.json({ data: await games.getMedals(request.auth.playerId) });
+});
+router.get("/me/state", auth, async (request, response) => {
+    response.json({ data: await games.getState(request.auth.playerId) });
 });
 router.post("/attempts", writeLimiter, auth, async (request, response) => {
     const input = startAttemptSchema.parse(request.body);
@@ -71,7 +73,7 @@ router.delete("/me", writeLimiter, auth, async (request, response) => {
     if (request.header("x-confirm-delete") !== "DELETE") {
         throw new ApiError(400, "DELETE_CONFIRMATION_REQUIRED", "Envie o cabeçalho X-Confirm-Delete: DELETE.");
     }
-    await new SessionRepository(pool).deletePlayer(request.auth.playerId);
+    await new SessionRepository(db).deletePlayer(request.auth.playerId);
     response.clearCookie(env.COOKIE_NAME, cookieOptions);
     response.status(204).send();
 });

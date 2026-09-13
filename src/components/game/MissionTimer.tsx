@@ -5,20 +5,12 @@ interface MissionTimerProps {
   durationSeconds: number;
   isActive: boolean;
   onExpire: () => void;
+  label?: string;
 }
 
-function formatTime(totalSeconds: number) {
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
-}
-
-function MissionTimer({ durationSeconds, isActive, onExpire }: MissionTimerProps) {
+function MissionTimer({ durationSeconds, isActive, onExpire, label = "Tempo restante" }: MissionTimerProps) {
   const [secondsLeft, setSecondsLeft] = useState(durationSeconds);
-
-  // Garante uma única fonte de verdade: onExpire dispara só uma vez por
-  // instância do timer, mesmo que o componente pai re-renderize.
-  const hasExpiredRef = useRef(false);
+  const expiredRef = useRef(false);
   const onExpireRef = useRef(onExpire);
 
   useEffect(() => {
@@ -27,31 +19,41 @@ function MissionTimer({ durationSeconds, isActive, onExpire }: MissionTimerProps
 
   useEffect(() => {
     setSecondsLeft(durationSeconds);
-    hasExpiredRef.current = false;
+    expiredRef.current = false;
   }, [durationSeconds]);
 
   useEffect(() => {
-    if (!isActive || hasExpiredRef.current) return;
+    if (!isActive || expiredRef.current) return;
 
-    if (secondsLeft <= 0) {
-      hasExpiredRef.current = true;
+    if (secondsLeft === 0) {
+      expiredRef.current = true;
       onExpireRef.current();
       return;
     }
 
-    const timeoutId = setTimeout(() => {
-      setSecondsLeft((prev) => prev - 1);
-    }, 1000);
+    const timeoutId = window.setTimeout(() => setSecondsLeft((current) => Math.max(0, current - 1)), 1000);
 
     return () => clearTimeout(timeoutId);
   }, [isActive, secondsLeft]);
 
-  const isLow = secondsLeft <= 10;
+  const percentage = (secondsLeft / durationSeconds) * 100;
+  const isUrgent = secondsLeft > 0 && secondsLeft <= 3;
 
   return (
-    <div className={`mission-timer ${isLow ? "mission-timer--low" : ""}`}>
-      <span className="mission-timer__icon">⏱️</span>
-      <span className="mission-timer__time">{formatTime(secondsLeft)}</span>
+    <div
+      className={`mission-timer ${isUrgent ? "mission-timer--urgent" : ""}`}
+      role="timer"
+      aria-live={isUrgent ? "assertive" : "off"}
+      aria-label={`${label}: ${secondsLeft} segundos`}
+    >
+      <div className="mission-timer__top">
+        <span aria-hidden="true">⏱️</span>
+        <span>{label}</span>
+        <strong>{secondsLeft}s</strong>
+      </div>
+      <div className="mission-timer__track" aria-hidden="true">
+        <span className="mission-timer__fill" style={{ transform: `scaleX(${percentage / 100})` }} />
+      </div>
     </div>
   );
 }

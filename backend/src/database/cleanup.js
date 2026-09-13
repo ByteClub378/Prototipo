@@ -1,12 +1,17 @@
 import "dotenv/config";
-import { pool } from "./pool.js";
+import { Timestamp } from "firebase-admin/firestore";
+import { db } from "./firebase.js";
 import { env } from "../config/env.js";
-try {
-    const [sessions] = await pool.execute("DELETE FROM sessions WHERE expires_at < DATE_SUB(NOW(3), INTERVAL 30 DAY) OR revoked_at < DATE_SUB(NOW(3), INTERVAL 30 DAY)");
-    const [players] = await pool.execute(`DELETE FROM players WHERE last_seen_at < DATE_SUB(NOW(3), INTERVAL ? DAY)
-     AND NOT EXISTS (SELECT 1 FROM sessions s WHERE s.player_id = players.id AND s.revoked_at IS NULL AND s.expires_at > NOW(3))`, [env.PLAYER_RETENTION_DAYS]);
-    console.log(`Limpeza concluída: ${sessions.affectedRows} sessões e ${players.affectedRows} jogadores removidos.`);
+
+const playerLimit = Timestamp.fromMillis(Date.now() - env.PLAYER_RETENTION_DAYS * 86400000);
+const inactive = await db.collection("players").where("lastSeenAt", "<", playerLimit).get();
+let players = 0;
+for (const player of inactive.docs) {
+  const writer = db.bulkWriter();
+  const attempts = await db.collection("attempts").where("playerId", "==", player.id).get();
+  attempts.docs.forEach((doc) => writer.delete(doc.ref));
+  writer.delete(player.ref);
+  await writer.close();
+  players += 1;
 }
-finally {
-    await pool.end();
-}
+console.log(`Limpeza concluída: ${players} jogadores inativos e suas tentativas removidos.`);

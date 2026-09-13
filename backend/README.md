@@ -1,40 +1,175 @@
-# Backend — Aventura das Regiões
+# API — Aventura das Regiões
 
-API isolada do frontend, construída em JavaScript com Node.js, Express e MySQL (`mysql2`).
+API pública do jogo educativo, feita em JavaScript ESM com Node.js, Express e Cloud Firestore pelo Firebase Admin SDK. Gerencia jogadores anônimos, sessões, tentativas, progresso, desbloqueios e medalhas.
 
-## Preparação
+## Execução
 
-1. Na raiz do projeto, copie `backend/.env.example` para `.env` e configure o MySQL.
-2. Garanta que o usuário MySQL informado tenha permissão para criar o banco na
-   primeira execução (ou crie o banco previamente).
-3. Para configurar banco, aplicar migrations, executar seeds e iniciar a API em
-   um único comando, execute na raiz:
+Na raiz, copie `.env.example` para `.env`, crie um projeto Firebase com Cloud Firestore e configure uma conta de serviço. Em produção no Google Cloud, Application Default Credentials também podem ser usadas.
 
 ```bash
 npm ci
-npm start
+npm start       # carrega o catálogo no Firestore e inicia a API
+npm run dev:all # inicia API e frontend juntos
 ```
 
-`npm start` não executa build. Como o backend é JavaScript puro, os arquivos são
-executados diretamente pelo Node.js.
+API padrão: `http://localhost:3000`. Prefixo: `/api/v1`. `npm start` valida o Firebase, executa o seed idempotente e inicia o servidor, sem build.
 
-Para preparar/iniciar o backend e ligar o frontend simultaneamente, use:
+## Ambiente
+
+| Variável | Uso | Padrão |
+|---|---|---|
+| `PORT` | Porta HTTP | `3000` |
+| `FRONTEND_ORIGIN` | Origem permitida pelo CORS | `http://localhost:5173` |
+| `COOKIE_NAME` | Cookie de sessão | `aventura_session` |
+| `SESSION_TTL_HOURS` | Validade da sessão | `168` |
+| `SESSION_SECRET` | Segredo de assinatura, mínimo 32 caracteres | obrigatório em produção |
+| `PLAYER_RETENTION_DAYS` | Retenção de inativos | `365` |
+| `FIREBASE_PROJECT_ID` | ID do projeto Firebase | obrigatório |
+| `FIREBASE_CLIENT_EMAIL` | E-mail da conta de serviço | opcional com ADC |
+| `FIREBASE_PRIVATE_KEY` | Chave privada com `\n` escapado | opcional com ADC |
+| `FIRESTORE_EMULATOR_HOST` | Host do emulador local | opcional |
+
+## Autenticação anônima
+
+A sessão usa um cookie assinado `HttpOnly`, `SameSite=Lax` e, em produção,
+`Secure`. A assinatura é validada localmente pela API, sem leitura do Firestore
+em cada requisição. Clientes web devem usar `credentials: "include"`. O
+`playerId` retornado é público e não autentica requisições.
+
+Por ser stateless, o logout remove o cookie do navegador, mas não mantém uma
+lista de revogação no Firestore. Um cookie eventualmente copiado permanece
+válido até expirar; trocar `SESSION_SECRET` invalida todos os cookies existentes.
+Essa é a troca consciente para eliminar leituras de sessão por requisição.
+
+## Respostas
+
+Sucesso: `{ "data": ... }`. Erro: `{ "error": { "code": "CODIGO", "message": "Descrição", "details": [] } }`. Respostas `204` não têm corpo.
+
+## Endpoints
+
+### Saúde
+
+- `GET /health/live` — processo HTTP ativo, sem consultar o banco.
+- `GET /health/ready` — confirma acesso ao Cloud Firestore.
+
+### Sessão
+
+- `POST /api/v1/session/bootstrap` — cria jogador (`201`, uma gravação) ou reutiliza o cookie válido (`200`, sem operação no Firestore). Retorna `playerId`, `expiresAt` e `created`.
+- `POST /api/v1/session/refresh` — renova o cookie assinado sem acessar o Firestore.
+- `DELETE /api/v1/session` — remove o cookie neste navegador e retorna `204`.
+
+### Progresso
+
+- `GET /api/v1/me/state` — endpoint preferido: retorna `playerId`, `revision`, progresso e medalhas com apenas uma leitura.
+- `GET /api/v1/me/progress` e `GET /api/v1/me/medals` — compatibilidade; evitá-los em conjunto, pois cada chamada faz uma leitura.
+
+### Tentativas
+
+`POST /api/v1/attempts` valida o início de uma tentativa, mas não grava nada no
+Firestore. É opcional; o cliente pode gerar o UUID e enviar somente a conclusão:
+
+```json
+{
+  "attemptId": "0f5f49b4-0742-4c3a-8f8b-1a9adf2b5ab1",
+  "regionId": "norte",
+  "levelNumber": 1
+}
+```
+
+O cliente deve gerar um UUID e reutilizá-lo em retentativas de rede. A resposta
+possui `persisted: false`.
+
+`PATCH /api/v1/attempts/:attemptId/complete` conclui a tentativa e atualiza pontuação, desbloqueios e medalhas em uma transação:
+
+```json
+{
+  "regionId": "norte",
+  "levelNumber": 1,
+  "score": 80,
+  "correctAnswers": 8,
+  "incorrectAnswers": 2,
+  "durationSeconds": 45
+}
+```
+
+A conclusão é o único ponto de persistência da partida: cria uma tentativa e
+atualiza o documento do jogador na mesma transação. A resposta contém a nova
+`revision`. O frontend deve substituir seu cache quando a revisão aumentar.
+
+### Estratégia de baixo consumo
+
+- Autenticação e renovação de cookie: zero leituras e gravações.
+- Estado completo: uma leitura do documento do jogador.
+- Início opcional: zero leituras e gravações.
+- Conclusão: duas leituras transacionais e duas gravações.
+- `lastSeenAt` muda somente em criação, conclusão e reinicialização.
+- Não são persistidos cliques, respostas individuais ou pulsos do cronômetro.
+
+### Exclusão
+
+- `DELETE /api/v1/me/progress` com `X-Confirm-Reset: RESET` reinicia progresso, tentativas e medalhas.
+- `DELETE /api/v1/me` com `X-Confirm-Delete: DELETE` exclui permanentemente jogador, sessões e dados.
+
+## Erros principais
+
+| HTTP | Código |
+|---:|---|
+| 400 | `VALIDATION_ERROR`, `SCORE_OUT_OF_RANGE`, `INVALID_ATTEMPT_ID` |
+| 401 | `SESSION_INVALID` |
+| 403 | `LEVEL_LOCKED` |
+| 404 | `LEVEL_NOT_FOUND` |
+| 409 | `ATTEMPT_ID_CONFLICT`, `ATTEMPT_ALREADY_COMPLETED` |
+| 429 | Limite de requisições excedido |
+| 500 | `INTERNAL_ERROR` |
+
+## Firestore e manutenção
 
 ```bash
-npm run dev:all
+npm run firebase:seed
+npm run db:cleanup
 ```
 
-Pressione `Ctrl+C` para encerrar os dois processos.
+O seed cria ou atualiza `regions`, `levels` e `medals`. A aplicação usa `players`
+e `attempts`; sessões assinadas não geram documentos. Por ser um banco sem
+esquema, não existem migrations SQL. A limpeza remove jogadores inativos e suas
+tentativas. O catálogo atual contém cinco regiões, seis níveis do Norte e a
+Medalha do Norte.
 
-Execute `npm run db:cleanup` periodicamente (por exemplo, uma vez ao dia). O
-comando remove sessões antigas e jogadores inativos após `PLAYER_RETENTION_DAYS`.
+As regras em `backend/firebase/firestore.rules` negam todo acesso direto de
+clientes. Elas devem ser publicadas no projeto Firebase; o Admin SDK do backend
+continua autorizado pela conta de serviço. As consultas atuais utilizam índices
+de campo único criados automaticamente pelo Firestore.
 
-Validação local:
+Com o Firebase CLI autenticado, publique regras e índices a partir da raiz:
+
+```bash
+firebase deploy --only firestore --config backend/firebase/firebase.json
+```
+
+## Segurança
+
+- Nenhum dado pessoal é exigido.
+- Cookies assinados não aparecem no JSON e não são persistidos no Firestore.
+- Escritas críticas de tentativa e progresso usam transações do Firestore.
+- CORS é restrito, JSON é limitado a 32 KB e há rate limiting.
+- Erros internos não expõem stack traces.
+- Pontuação é validada contra o limite do nível.
+
+As métricas finais ainda são calculadas pelo cliente. Para maior resistência a fraude, respostas ou eventos individuais deverão futuramente ser validados no servidor.
+
+## Testes
 
 ```bash
 npm run lint:backend
 npm run test:backend
-npm run build:backend
 ```
 
-A API usa o prefixo `/api/v1`. O cookie de sessão é opaco, `HttpOnly` e `SameSite=Lax`; em produção também é `Secure`.
+Testes transacionais completos requerem o Firebase Emulator Suite ou um projeto Firebase exclusivo para testes.
+
+### Auditoria de dependências
+
+O Firebase Admin 14.4.0, versão mais recente no momento desta atualização,
+carrega pelo módulo interno de Storage uma versão de `uuid` sinalizada com
+severidade moderada. Este backend utiliza apenas Firestore e não chama as APIs
+afetadas de UUID v3/v5/v6. A dependência deve ser reavaliada quando o Firebase
+Admin publicar uma atualização compatível.

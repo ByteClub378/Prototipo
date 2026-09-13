@@ -15,10 +15,10 @@ describe("validação de tentativas", () => {
   });
 
   it("rejeita pontuação negativa e tentativa sem respostas", () => {
-    expect(() => completeAttemptSchema.parse({ score: -1, correctAnswers: 0, incorrectAnswers: 0, durationSeconds: 1 })).toThrow();
+        expect(() => completeAttemptSchema.parse({ regionId: "norte", levelNumber: 1, score: -1, correctAnswers: 0, incorrectAnswers: 0, durationSeconds: 1 })).toThrow();
   });
 
   it("aceita métricas válidas", () => {
-    expect(completeAttemptSchema.parse({ score: 80, correctAnswers: 8, incorrectAnswers: 2, durationSeconds: 45 }).score).toBe(80);
+        expect(completeAttemptSchema.parse({ regionId: "norte", levelNumber: 1, score: 80, correctAnswers: 8, incorrectAnswers: 2, durationSeconds: 45 }).score).toBe(80);
   });
 });
