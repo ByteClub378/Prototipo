@@ -14,6 +14,7 @@ import { createNordesteLevels } from "../../../data/missions/nordesteLevels";
 import { playSuccessSound, playErrorSound, playTimeoutSound } from "../../../utils/sound";
 import { logEvent } from "../../../utils/telemetry";
 import { useAttempt } from "../../../hooks/useAttempt";
+import { useSession } from "../../../context/SessionContext";
 import { POINTS_PER_CORRECT_ANSWER, POINTS_PER_INCORRECT_ANSWER } from "../../../data/scoring";
 import { shuffle } from "../../../utils/random";
 import "./NordestePhase.css";
@@ -102,6 +103,7 @@ function NordestePhase() {
   const { completeRegion } = useProgress();
   const { addPoints, resetScore } = useScore();
   const { startAttempt, completeAttempt } = useAttempt("nordeste");
+  const { refreshState } = useSession();
   const levelScoreRef = useRef(0);
   const levelCorrectRef = useRef(0);
   const levelIncorrectRef = useRef(0);
@@ -159,13 +161,25 @@ function NordestePhase() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [levelIndex]);
 
-    function finishLevel() {
+  async function finishLevel() {
     logEvent({ type: "level_complete", phase: "nordeste", level: level.id });
-    completeAttempt({
+    const result = await completeAttempt({
       score: levelScoreRef.current,
       correctAnswers: levelCorrectRef.current,
       incorrectAnswers: levelIncorrectRef.current,
     });
+
+    if (!result) {
+      setFeedback({
+        type: "error",
+        title: "Não foi possível salvar",
+        message: "Confira sua conexão e tente novamente.",
+      });
+      setIsResolving(false);
+      return;
+    }
+
+    await refreshState();
     if (isLastLevel) {
       const answered = missionAnsweredRef.current;
       const correct = missionCorrectRef.current;

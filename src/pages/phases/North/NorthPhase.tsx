@@ -14,6 +14,7 @@ import { logEvent } from "../../../utils/telemetry";
 import { POINTS_PER_CORRECT_ANSWER, POINTS_PER_INCORRECT_ANSWER } from "../../../data/scoring";
 import { useScore } from "../../../context/ScoreContext";
 import { useAttempt } from "../../../hooks/useAttempt";
+import { useSession } from "../../../context/SessionContext";
 import { shuffle } from "../../../utils/random";
 import ScoreDisplay from "../../../components/game/ScoreDisplay";
 import "./NorthPhase.css";
@@ -38,6 +39,7 @@ function NorthPhase() {
   const { completeRegion } = useProgress();
   const { addPoints, resetScore } = useScore();
   const { startAttempt, completeAttempt } = useAttempt("norte");
+  const { refreshState } = useSession();
 
   // Contadores da tentativa ATUAL (resetam a cada nível) — usados só pro
   // PATCH /attempts/{id}/complete, não se confundem com o placar global.
@@ -104,13 +106,25 @@ function NorthPhase() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [levelIndex]);
 
-    function finishLevel() {
+  async function finishLevel() {
     logEvent({ type: "level_complete", phase: "north", level: level.id });
-    completeAttempt({
+    const result = await completeAttempt({
       score: levelScoreRef.current,
       correctAnswers: levelCorrectRef.current,
       incorrectAnswers: levelIncorrectRef.current,
     });
+
+    if (!result) {
+      setFeedback({
+        type: "error",
+        title: "Não foi possível salvar",
+        message: "Confira sua conexão e tente novamente.",
+      });
+      setIsResolving(false);
+      return;
+    }
+
+    await refreshState();
     if (isLastLevel) {
       const answered = missionAnsweredRef.current;
       const correct = missionCorrectRef.current;

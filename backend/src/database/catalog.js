@@ -7,16 +7,17 @@ export const REGIONS = [
 ];
 
 export const LEVELS = [
-  { regionId: "norte", levelNumber: 1, name: "Introdução", maxScore: 100 },
-  { regionId: "norte", levelNumber: 2, name: "Aleatoriedade", maxScore: 100 },
-  { regionId: "norte", levelNumber: 3, name: "Contra o tempo", maxScore: 100 },
-  { regionId: "norte", levelNumber: 4, name: "Pegadinhas", maxScore: 100 },
-  { regionId: "norte", levelNumber: 5, name: "Desafio surpresa", maxScore: 100 },
-  { regionId: "norte", levelNumber: 6, name: "Desafio final", maxScore: 100 },
+  { regionId: "norte", levelNumber: 1, name: "Escolha o ambiente", maxScore: 400, minScore: 240 },
+  { regionId: "norte", levelNumber: 2, name: "Combina ou não?", maxScore: 400, minScore: 240 },
+  { regionId: "norte", levelNumber: 3, name: "Desafio relâmpago", maxScore: 500, minScore: 300 },
+  { regionId: "nordeste", levelNumber: 1, name: "Descoberta", maxScore: 400, minScore: 240 },
+  { regionId: "nordeste", levelNumber: 2, name: "Explorador", maxScore: 400, minScore: 240 },
+  { regionId: "nordeste", levelNumber: 3, name: "Desafio relâmpago", maxScore: 400, minScore: 240 },
 ];
 
 export const MEDALS = [
   { id: "norte-completo", name: "Medalha do Norte", description: "Conclua todos os níveis da região Norte.", regionId: "norte", criterionType: "region_complete" },
+  { id: "nordeste-completo", name: "Medalha do Nordeste", description: "Conclua todos os níveis da região Nordeste.", regionId: "nordeste", criterionType: "region_complete" },
 ];
 
 export const levelId = (regionId, levelNumber) => `${regionId}_${levelNumber}`;

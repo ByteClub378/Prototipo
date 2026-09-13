@@ -1,9 +1,11 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import { apiPost, ApiError } from "../utils/api";
+import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
+import { apiGet, apiPost, ApiError } from "../utils/api";
+import type { GameStateResponse } from "../types/api";
 
 // Referência pública apenas para diagnóstico — NÃO autentica nada.
 // A autenticação real é o cookie HttpOnly, que o JS nunca lê.
 const PLAYER_ID_STORAGE_KEY = "aventura-regioes:playerId";
+const GAME_STATE_STORAGE_KEY = "aventura-regioes:serverState";
 
 type SessionStatus = "idle" | "loading" | "ready" | "error";
 
@@ -16,6 +18,8 @@ interface BootstrapResponse {
 interface SessionContextValue {
   status: SessionStatus;
   playerId: string | null;
+  gameState: GameStateResponse | null;
+  refreshState: () => Promise<GameStateResponse | null>;
 }
 
 const SessionContext = createContext<SessionContextValue | undefined>(undefined);
@@ -23,6 +27,27 @@ const SessionContext = createContext<SessionContextValue | undefined>(undefined)
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<SessionStatus>("idle");
   const [playerId, setPlayerId] = useState<string | null>(null);
+  const [gameState, setGameState] = useState<GameStateResponse | null>(null);
+
+  const saveGameState = useCallback((state: GameStateResponse) => {
+    setGameState(state);
+    setPlayerId(state.playerId);
+    localStorage.setItem(PLAYER_ID_STORAGE_KEY, state.playerId);
+    localStorage.setItem(GAME_STATE_STORAGE_KEY, JSON.stringify(state));
+    return state;
+  }, []);
+
+  const refreshState = useCallback(async () => {
+    try {
+      const state = await apiGet<GameStateResponse>("/me/state");
+      saveGameState(state);
+      setStatus("ready");
+      return state;
+    } catch (error) {
+      console.warn("[session] Erro ao sincronizar progresso:", error);
+      return null;
+    }
+  }, [saveGameState]);
 
   useEffect(() => {
     let cancelled = false;
@@ -34,6 +59,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         if (cancelled) return;
         setPlayerId(result.playerId);
         localStorage.setItem(PLAYER_ID_STORAGE_KEY, result.playerId);
+
+        const state = await apiGet<GameStateResponse>("/me/state");
+        if (cancelled) return;
+        saveGameState(state);
         setStatus("ready");
       } catch (error) {
         if (cancelled) return;
@@ -50,10 +79,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [saveGameState]);
 
   return (
-    <SessionContext.Provider value={{ status, playerId }}>{children}</SessionContext.Provider>
+    <SessionContext.Provider value={{ status, playerId, gameState, refreshState }}>
+      {children}
+    </SessionContext.Provider>
   );
 }
 
