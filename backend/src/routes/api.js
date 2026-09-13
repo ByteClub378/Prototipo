@@ -15,7 +15,7 @@ const auth = requireSession(sessions);
 const cookieOptions = {
     httpOnly: true,
     secure: env.NODE_ENV === "production",
-    sameSite: "lax",
+    sameSite: env.NODE_ENV === "production" ? "none" : "lax",
     path: "/api/v1",
 };
 const setSessionCookie = (response, token, expiresAt) => {
