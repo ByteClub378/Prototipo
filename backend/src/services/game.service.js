@@ -5,6 +5,8 @@ export const startAttemptSchema = z.object({
     levelNumber: z.number().int().positive().max(100),
 }).strict();
 export const completeAttemptSchema = z.object({
+    regionId: z.enum(["norte", "nordeste", "centro-oeste", "sudeste", "sul"]),
+    levelNumber: z.number().int().positive().max(100),
     score: z.number().int().min(0).max(1_000_000),
     correctAnswers: z.number().int().min(0).max(10_000),
     incorrectAnswers: z.number().int().min(0).max(10_000),
@@ -19,6 +21,7 @@ export class GameService {
     }
     getProgress = (playerId) => this.repository.getProgress(playerId);
     getMedals = (playerId) => this.repository.getMedals(playerId);
+    getState = (playerId) => this.repository.getState(playerId);
     startAttempt = (playerId, input) => this.repository.startAttempt(playerId, input.attemptId, input.regionId, input.levelNumber);
     completeAttempt = (playerId, attemptId, input) => this.repository.completeAttempt(playerId, attemptId, input);
     resetProgress = (playerId) => this.repository.resetProgress(playerId);
