@@ -16,6 +16,7 @@ const schema = z.object({
     FIRESTORE_EMULATOR_HOST: z.string().min(1).optional(),
 });
 export const env = schema.parse(process.env);
-if (env.NODE_ENV === "production" && env.SESSION_SECRET === "development-only-change-this-secret") {
-    throw new Error("SESSION_SECRET deve ser configurado em produção.");
+const secureDeployment = env.NODE_ENV === "production" || new URL(env.FRONTEND_ORIGIN).protocol === "https:";
+if (secureDeployment && env.SESSION_SECRET === "development-only-change-this-secret") {
+    throw new Error("SESSION_SECRET deve ser configurado em produção ou implantação HTTPS.");
 }

@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { rateLimit } from "express-rate-limit";
 import { env } from "../config/env.js";
+import { sessionCookieOptions } from "../config/session-cookie.js";
 import { db } from "../database/firebase.js";
 import { requireSession } from "../middleware/auth.js";
 import { GameRepository } from "../repositories/game.repository.js";
@@ -12,12 +13,7 @@ const router = Router();
 const sessions = new SessionService(new SessionRepository(db));
 const games = new GameService(new GameRepository());
 const auth = requireSession(sessions);
-const cookieOptions = {
-    httpOnly: true,
-    secure: env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/api/v1",
-};
+const cookieOptions = sessionCookieOptions(env);
 const setSessionCookie = (response, token, expiresAt) => {
     response.cookie(env.COOKIE_NAME, token, { ...cookieOptions, expires: expiresAt });
 };
