@@ -2,7 +2,8 @@
 // cookies (credentials: "include") e o parsing do formato de resposta usado
 // pela API: { data: ... } em sucesso, { error: { code, message } } em falha.
 
-const API_URL = import.meta.env.VITE_API_URL as string | undefined;
+const API_URL = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, "");
+const API_BASE_URL = API_URL ? `${API_URL}/api/v1` : "/api/v1";
 
 export class ApiError extends Error {
   status: number;
@@ -27,11 +28,7 @@ interface ApiFailureBody {
 }
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
-  if (!API_URL) {
-    throw new ApiError(0, "API_URL_MISSING", "VITE_API_URL não está configurada no frontend.");
-  }
-
-  const response = await fetch(`${API_URL}/api/v1${path}`, {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
     ...options,
     credentials: "include",
     headers: {

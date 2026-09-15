@@ -7,6 +7,8 @@ import {
 } from "react";
 import type { RegionId, RegionStatus } from "../types";
 import { REGIONS } from "../data/regions/regions";
+import { apiDelete } from "../utils/api";
+import { useSession } from "./SessionContext";
 
 const STORAGE_KEY = "aventura-regioes:progress";
 
@@ -44,11 +46,21 @@ const ProgressContext = createContext<ProgressContextValue | undefined>(
 );
 
 export function ProgressProvider({ children }: { children: ReactNode }) {
+  const { gameState, refreshState } = useSession();
   const [progress, setProgress] = useState<ProgressMap>(loadProgress);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
   }, [progress]);
+
+  useEffect(() => {
+    if (!gameState) return;
+    const next = buildInitialProgress();
+    gameState.progress.regions.forEach((region) => {
+      next[region.regionId] = region.status;
+    });
+    setProgress(next);
+  }, [gameState]);
 
   const sortedRegions = [...REGIONS].sort((a, b) => a.order - b.order);
 
@@ -70,9 +82,17 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
     return progress[id] ?? "locked";
   }
 
-  function resetProgress() {
-    const fresh = buildInitialProgress();
-    setProgress(fresh);
+  async function resetProgress() {
+    await apiDelete("/me/progress", { "X-Confirm-Reset": "RESET" });
+    localStorage.removeItem(STORAGE_KEY);
+    const state = await refreshState();
+    if (state) {
+      const next = buildInitialProgress();
+      state.progress.regions.forEach((region) => {
+        next[region.regionId] = region.status;
+      });
+      setProgress(next);
+    }
   }
 
   const bonusUnlocked = sortedRegions.every(
