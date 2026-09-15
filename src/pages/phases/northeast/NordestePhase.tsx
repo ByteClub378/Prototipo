@@ -7,7 +7,6 @@ import ProgressBar from "../../../components/ui/ProgressBar";
 import FeedbackMessage from "../../../components/game/FeedbackMessage";
 import MissionTimer from "../../../components/game/MissionTimer";
 import ScoreDisplay from "../../../components/game/ScoreDisplay";
-import { useProgress } from "../../../context/ProgressContext";
 import { useScore } from "../../../context/ScoreContext";
 import { NORDESTE_QUESTIONS, type QuizOption } from "../../../data/missions/nordesteQuestions";
 import { createNordesteLevels } from "../../../data/missions/nordesteLevels";
@@ -100,10 +99,9 @@ const MINIMUM_ACCURACY = 0.6;
 
 function NordestePhase() {
   const navigate = useNavigate();
-  const { completeRegion } = useProgress();
   const { addPoints, resetScore } = useScore();
   const { startAttempt, completeAttempt } = useAttempt("nordeste");
-  const { refreshState } = useSession();
+  const { status, refreshState, retryBootstrap } = useSession();
   const levelScoreRef = useRef(0);
   const levelCorrectRef = useRef(0);
   const levelIncorrectRef = useRef(0);
@@ -124,8 +122,11 @@ function NordestePhase() {
   const [feedback, setFeedback] = useState<Feedback | null>(null);
   const [selectedOptionId, setSelectedOptionId] = useState<string | null>(null);
   const [timerNonce, setTimerNonce] = useState(0);
+  const [isStarting, setIsStarting] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const advanceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isSubmittingRef = useRef(false);
 
   function scheduleAdvance(callback: () => void, delay: number) {
     if (advanceTimeoutRef.current) clearTimeout(advanceTimeoutRef.current);
@@ -141,7 +142,7 @@ function NordestePhase() {
   const level = levels[levelIndex];
   const isLastLevel = levelIndex === levels.length - 1;
 
-  function startLevel(idx: number, showLevelBanner = idx === 0) {
+  function startLevel(idx: number, showLevelBanner = true) {
     const nextLevel = levels[idx];
     setShowBanner(showLevelBanner);
     setLevelComplete(false);
@@ -162,6 +163,11 @@ function NordestePhase() {
   }, [levelIndex]);
 
   async function finishLevel() {
+    if (isSubmittingRef.current) return;
+
+    isSubmittingRef.current = true;
+    setIsSubmitting(true);
+    setIsResolving(true);
     logEvent({ type: "level_complete", phase: "nordeste", level: level.id });
     const result = await completeAttempt({
       score: levelScoreRef.current,
@@ -176,6 +182,21 @@ function NordestePhase() {
         message: "Confira sua conexão e tente novamente.",
       });
       setIsResolving(false);
+      isSubmittingRef.current = false;
+      setIsSubmitting(false);
+      return;
+    }
+
+    if (!result.passed) {
+      setFeedback({
+        type: "error",
+        title: "Tente novamente",
+        message: `Você precisa alcançar ${result.minScore} pontos.`,
+      });
+      setIsResolving(false);
+      isSubmittingRef.current = false;
+      setIsSubmitting(false);
+      setShowBanner(true);
       return;
     }
 
@@ -187,7 +208,6 @@ function NordestePhase() {
 
       setFinalAccuracy(accuracy);
       if (accuracy >= MINIMUM_ACCURACY) {
-        completeRegion("nordeste");
         setMissionComplete(true);
       } else {
         setMissionFailed(true);
@@ -195,17 +215,51 @@ function NordestePhase() {
     } else {
       setLevelIndex((idx) => idx + 1);
     }
+    isSubmittingRef.current = false;
+    setIsSubmitting(false);
   }
 
-  function handleStartLevel() {
-    setShowBanner(false);
+  async function handleStartLevel() {
+    if (isStarting) return;
+
+    setIsStarting(true);
+    if (status === "loading") {
+      setIsStarting(false);
+      return;
+    }
+    if (status === "error") {
+      const recovered = await retryBootstrap();
+      if (!recovered) {
+        setFeedback({
+          type: "error",
+          title: "Não foi possível conectar",
+          message: "Tentar conectar novamente.",
+        });
+        setIsStarting(false);
+        return;
+      }
+    }
     if (levelIndex === 0) {
       missionCorrectRef.current = 0;
       missionAnsweredRef.current = 0;
       setMissionFailed(false);
       setFinalAccuracy(0);
     }
-    startAttempt(level.id);
+
+    const started = await startAttempt(level.id);
+    if (!started) {
+      setFeedback({
+        type: "error",
+        title: "Não foi possível iniciar",
+        message: "Verifique sua conexão e tente novamente.",
+      });
+      setIsStarting(false);
+      return;
+    }
+
+    startLevel(levelIndex, true);
+    setShowBanner(false);
+    setIsStarting(false);
   }
 
   function restartMission() {
@@ -231,7 +285,6 @@ function NordestePhase() {
   }
 
   function advanceQuestion() {
-    setIsResolving(false);
     setSelectedOptionId(null);
 
     const nextPos = currentPos + 1;
@@ -263,7 +316,7 @@ function NordestePhase() {
   }, [currentQuestion, level.optionCount]);
 
   function handleSelectOption(option: QuizOption) {
-    if (!currentQuestion || isResolving) return;
+    if (!currentQuestion || isResolving || isSubmitting) return;
 
     missionAnsweredRef.current += 1;
     setSelectedOptionId(option.id);
@@ -296,7 +349,7 @@ function NordestePhase() {
   }
 
   function handleTimeout() {
-    if (!currentQuestion || isResolving) return;
+    if (!currentQuestion || isResolving || isSubmitting) return;
 
     missionAnsweredRef.current += 1;
 
@@ -324,7 +377,7 @@ function NordestePhase() {
   }
 
   const timerDuration = level.durationSeconds;
-  const isTimerActive = !showBanner && !levelComplete && !missionComplete && !isResolving;
+  const isTimerActive = !showBanner && !levelComplete && !missionComplete && !isResolving && !isSubmitting;
 
   return (
     <div className="nordeste-phase">
@@ -364,6 +417,8 @@ function NordestePhase() {
           level={level} 
           totalLevels={levels.length} 
           onStart={handleStartLevel} 
+          buttonLabel={status === "loading" ? "Conectando..." : status === "error" ? "Tentar conectar novamente" : "Começar"}
+          disabled={status === "loading" || isStarting}
         />
       ) : levelComplete ? (
         <GameCard className="nordeste-phase__complete">
@@ -408,7 +463,7 @@ function NordestePhase() {
                       key={option.id}
                       className={`nordeste-phase__option ${stateClass}`}
                       onClick={() => handleSelectOption(option)}
-                      disabled={isResolving}
+                      disabled={isResolving || isSubmitting}
                     >
                       <span className="nordeste-phase__option-image-wrap">
                         {option.image ? (
