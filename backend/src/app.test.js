@@ -20,4 +20,12 @@ describe("API HTTP", () => {
     expect(response.status).toBe(404);
     expect(response.body.error.code).toBe("ROUTE_NOT_FOUND");
   });
+
+  it("bloqueia origens não autorizadas nas rotas da API", async () => {
+    const response = await request(app)
+      .get("/api/v1/me/state")
+      .set("Origin", "https://site-malicioso.example");
+    expect(response.status).toBe(403);
+    expect(response.body.error.code).toBe("ORIGIN_NOT_ALLOWED");
+  });
 });

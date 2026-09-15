@@ -20,6 +20,16 @@ export const MEDALS = [
   { id: "nordeste-completo", name: "Medalha do Nordeste", description: "Conclua todos os níveis da região Nordeste.", regionId: "nordeste", criterionType: "region_complete" },
 ];
 
+export const PASSING_PERCENT = 60;
+
+export const minimumScore = (level) =>
+  level.minScore ??
+  Math.ceil(
+    level.maxScore *
+      PASSING_PERCENT /
+      100,
+  );
+
 export const levelId = (regionId, levelNumber) => `${regionId}_${levelNumber}`;
 
 export function initialProgress() {
