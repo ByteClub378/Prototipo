@@ -4,6 +4,7 @@
 
 const API_URL = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, "");
 const API_BASE_URL = API_URL ? `${API_URL}/api/v1` : "/api/v1";
+const API_TIMEOUT_MS = 10_000;
 
 export class ApiError extends Error {
   status: number;
@@ -28,32 +29,43 @@ interface ApiFailureBody {
 }
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...options,
-    credentials: "include",
-    headers: {
-      "Content-Type": "application/json",
-      ...options.headers,
-    },
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
+  const onAbort = () => controller.abort();
+  options.signal?.addEventListener("abort", onAbort, { once: true });
 
-  if (response.status === 204) {
-    return undefined as T;
+  try {
+    const response = await fetch(`${API_BASE_URL}${path}`, {
+      ...options,
+      credentials: "include",
+      signal: controller.signal,
+      headers: {
+        "Content-Type": "application/json",
+        ...options.headers,
+      },
+    });
+
+    if (response.status === 204) {
+      return undefined as T;
+    }
+
+    const body = (await response.json()) as ApiSuccessBody<T> | ApiFailureBody;
+
+    if (!response.ok) {
+      const failure = body as ApiFailureBody;
+      throw new ApiError(
+        response.status,
+        failure.error?.code ?? "UNKNOWN_ERROR",
+        failure.error?.message ?? "Erro desconhecido.",
+        failure.error?.details
+      );
+    }
+
+    return (body as ApiSuccessBody<T>).data;
+  } finally {
+    clearTimeout(timeoutId);
+    options.signal?.removeEventListener("abort", onAbort);
   }
-
-  const body = (await response.json()) as ApiSuccessBody<T> | ApiFailureBody;
-
-  if (!response.ok) {
-    const failure = body as ApiFailureBody;
-    throw new ApiError(
-      response.status,
-      failure.error?.code ?? "UNKNOWN_ERROR",
-      failure.error?.message ?? "Erro desconhecido.",
-      failure.error?.details
-    );
-  }
-
-  return (body as ApiSuccessBody<T>).data;
 }
 
 export function apiGet<T>(path: string): Promise<T> {

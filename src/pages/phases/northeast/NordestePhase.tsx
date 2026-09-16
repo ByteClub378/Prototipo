@@ -20,7 +20,7 @@ import "./NordestePhase.css";
 
 const QUESTION_MAP = new Map(NORDESTE_QUESTIONS.map((q) => [q.id, q]));
 
-/* const OPTION_IMAGES: Record<string, string> = {
+const OPTION_IMAGES: Record<string, string> = {
   acaraje: "https://images.unsplash.com/photo-1601050690597-df0568f70950?auto=format&fit=crop&w=640&q=80",
   coxinha: "https://images.unsplash.com/photo-1627054240989-42f7bb0f9d5f?auto=format&fit=crop&w=640&q=80",
   tapioca: "https://images.unsplash.com/photo-1628102491629-778571d893a3?auto=format&fit=crop&w=640&q=80",
@@ -61,33 +61,6 @@ const QUESTION_MAP = new Map(NORDESTE_QUESTIONS.map((q) => [q.id, q]));
   vidro: "https://images.unsplash.com/photo-1513506003901-1e6a229e2d15?auto=format&fit=crop&w=640&q=80",
   "tricô europeu": "https://images.unsplash.com/photo-1527515637462-cff94eecc1ac?auto=format&fit=crop&w=640&q=80",
 };
-
-const QUESTION_CATEGORIES: Record<string, string> = {
-  caatinga: "Vegetação",
-  mandacaru: "Vegetação",
-  frevo: "Patrimônio cultural",
-  forro: "Patrimônio cultural",
-  cordel: "Patrimônio cultural",
-  "renda-de-bilro": "Patrimônio cultural",
-  acaraje: "Gastronomia",
-  tapioca: "Gastronomia",
-  "sao-joao": "Patrimônio cultural",
-  pelourinho: "Patrimônio cultural",
-  "bumba-meu-boi": "Patrimônio cultural",
-  "serra-da-capivara": "Patrimônio cultural",
-};
-
-const QUESTION_STATES: Record<string, string> = {
-  tapioca: "Alagoas",
-  acaraje: "Bahia",
-  "renda-de-bilro": "Ceará",
-  "bumba-meu-boi": "Maranhão",
-  "sao-joao": "Paraíba",
-  frevo: "Pernambuco",
-  "serra-da-capivara": "Piauí",
-  mandacaru: "Rio Grande do Norte",
-  cordel: "Sergipe",
-}; */
 
 interface Feedback {
   type: "success" | "error";
@@ -169,10 +142,17 @@ function NordestePhase() {
     setIsSubmitting(true);
     setIsResolving(true);
     logEvent({ type: "level_complete", phase: "nordeste", level: level.id });
+    const missionIncorrectAnswers = missionAnsweredRef.current - missionCorrectRef.current;
     const result = await completeAttempt({
       score: levelScoreRef.current,
       correctAnswers: levelCorrectRef.current,
       incorrectAnswers: levelIncorrectRef.current,
+      ...(isLastLevel
+        ? {
+            missionCorrectAnswers: missionCorrectRef.current,
+            missionIncorrectAnswers,
+          }
+        : {}),
     });
 
     if (!result) {
@@ -187,19 +167,6 @@ function NordestePhase() {
       return;
     }
 
-    if (!result.passed) {
-      setFeedback({
-        type: "error",
-        title: "Tente novamente",
-        message: `Você precisa alcançar ${result.minScore} pontos.`,
-      });
-      setIsResolving(false);
-      isSubmittingRef.current = false;
-      setIsSubmitting(false);
-      setShowBanner(true);
-      return;
-    }
-
     await refreshState();
     if (isLastLevel) {
       const answered = missionAnsweredRef.current;
@@ -207,13 +174,13 @@ function NordestePhase() {
       const accuracy = answered > 0 ? correct / answered : 0;
 
       setFinalAccuracy(accuracy);
-      if (accuracy >= MINIMUM_ACCURACY) {
+      if (result.passed && accuracy >= MINIMUM_ACCURACY) {
         setMissionComplete(true);
       } else {
         setMissionFailed(true);
       }
     } else {
-      setLevelIndex((idx) => idx + 1);
+      setLevelComplete(true);
     }
     isSubmittingRef.current = false;
     setIsSubmitting(false);
@@ -289,6 +256,7 @@ function NordestePhase() {
 
     const nextPos = currentPos + 1;
     if (nextPos < questionOrder.length) {
+      setIsResolving(false);
       setCurrentPos(nextPos);
       setTimerNonce((n) => n + 1);
       setFeedback(null);
@@ -422,10 +390,10 @@ function NordestePhase() {
         />
       ) : levelComplete ? (
         <GameCard className="nordeste-phase__complete">
-          <h2>✅ Nível concluído!</h2>
+          <h2>✅ Rodada concluída!</h2>
           <p>Muito bem! Vamos para o próximo desafio.</p>
           <button className="nordeste-phase__back-button" onClick={goToNextLevel}>
-            Próximo nível
+            Próxima rodada
           </button>
         </GameCard>
       ) : (
@@ -466,8 +434,13 @@ function NordestePhase() {
                       disabled={isResolving || isSubmitting}
                     >
                       <span className="nordeste-phase__option-image-wrap">
-                        {option.image ? (
-                          <img className="nordeste-phase__option-image" src={option.image} alt={option.text} loading="lazy" />
+                        {OPTION_IMAGES[option.id] || option.image ? (
+                          <img
+                            className="nordeste-phase__option-image"
+                            src={OPTION_IMAGES[option.id] ?? option.image}
+                            alt={option.text}
+                            loading="lazy"
+                          />
                         ) : (
                           <span className="nordeste-phase__option-fallback" aria-hidden="true">{currentQuestion.icon}</span>
                         )}

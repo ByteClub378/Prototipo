@@ -20,7 +20,7 @@ export function createNordesteLevels(): NordesteLevelConfig[] {
     {
       id: 1,
       title: "Descoberta",
-      instruction: "Comece com duas alternativas e descubra curiosidades do Nordeste.",
+      instruction: "Escolha a resposta correta entre quatro alternativas.",
       bannerIcon: "🌞",
       questionIds: questionIds.slice(0, 4),
       optionCount: 4,
@@ -29,7 +29,7 @@ export function createNordesteLevels(): NordesteLevelConfig[] {
     {
       id: 2,
       title: "Explorador",
-      instruction: "Agora são três alternativas e menos tempo para responder.",
+      instruction: "Continue com quatro alternativas e menos tempo para responder.",
       bannerIcon: "🧭",
       questionIds: questionIds.slice(4, 8),
       optionCount: 4,

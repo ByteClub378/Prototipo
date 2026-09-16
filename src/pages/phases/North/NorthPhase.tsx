@@ -114,10 +114,17 @@ function NorthPhase() {
     setIsSubmitting(true);
     setIsResolving(true);
     logEvent({ type: "level_complete", phase: "north", level: level.id });
+    const missionIncorrectAnswers = missionAnsweredRef.current - missionCorrectRef.current;
     const result = await completeAttempt({
       score: levelScoreRef.current,
       correctAnswers: levelCorrectRef.current,
       incorrectAnswers: levelIncorrectRef.current,
+      ...(isLastLevel
+        ? {
+            missionCorrectAnswers: missionCorrectRef.current,
+            missionIncorrectAnswers,
+          }
+        : {}),
     });
 
     if (!result) {
@@ -132,19 +139,6 @@ function NorthPhase() {
       return;
     }
 
-    if (!result.passed) {
-      setFeedback({
-        type: "error",
-        title: "Tente novamente",
-        message: `Você precisa alcançar ${result.minScore} pontos.`,
-      });
-      setIsResolving(false);
-      isSubmittingRef.current = false;
-      setIsSubmitting(false);
-      setShowBanner(true);
-      return;
-    }
-
     await refreshState();
     if (isLastLevel) {
       const answered = missionAnsweredRef.current;
@@ -152,13 +146,13 @@ function NorthPhase() {
       const accuracy = answered > 0 ? correct / answered : 0;
 
       setFinalAccuracy(accuracy);
-      if (accuracy >= MINIMUM_ACCURACY) {
+      if (result.passed && accuracy >= MINIMUM_ACCURACY) {
         setMissionComplete(true);
       } else {
         setMissionFailed(true);
       }
     } else {
-      setLevelIndex((idx) => idx + 1);
+      setLevelComplete(true);
     }
     isSubmittingRef.current = false;
     setIsSubmitting(false);
@@ -267,6 +261,7 @@ function NorthPhase() {
   function advanceSequentialItem() {
     const nextPos = currentItemPos + 1;
     if (nextPos < itemOrder.length) {
+      setIsResolving(false);
       setCurrentItemPos(nextPos);
       setIsItemSelected(false);
       setTimerNonce((n) => n + 1);
@@ -405,10 +400,10 @@ function NorthPhase() {
         />
       ) : levelComplete ? (
         <GameCard className="north-phase__complete">
-          <h2>✅ Nível concluído!</h2>
+          <h2>✅ Rodada concluída!</h2>
           <p>Muito bem! Vamos para o próximo desafio.</p>
           <button className="north-phase__back-button" onClick={goToNextLevel}>
-            Próximo nível
+            Próxima rodada
           </button>
         </GameCard>
       ) : (

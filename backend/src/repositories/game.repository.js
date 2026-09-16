@@ -1,6 +1,6 @@
 import { Timestamp } from "firebase-admin/firestore";
 import { db } from "../database/firebase.js";
-import { LEVELS, MEDALS, REGIONS, initialProgress, levelId, minimumScore } from "../database/catalog.js";
+import { LEVELS, MEDALS, REGIONS, initialProgress, levelId, meetsPassingAccuracy, minimumScore, usesPhaseAccuracy } from "../database/catalog.js";
 import { ApiError } from "../utils/api-error.js";
 
 const date = (value) => value?.toDate?.() ?? value ?? null;
@@ -72,16 +72,40 @@ export class GameRepository {
       const level = LEVELS.find((item) => item.regionId === input.regionId && item.levelNumber === input.levelNumber);
       if (!level) throw new ApiError(404, "LEVEL_NOT_FOUND", "Nível inexistente ou indisponível.");
       if (input.score > level.maxScore) throw new ApiError(400, "SCORE_OUT_OF_RANGE", `A pontuação máxima deste nível é ${level.maxScore}.`);
+      const nextLevel = LEVELS.find((item) => item.regionId === input.regionId && item.levelNumber === input.levelNumber + 1);
       const minScore = minimumScore(level);
-      const passed = input.score >= minScore;
+      const phaseAccuracyEnabled = usesPhaseAccuracy(input.regionId);
+      const intermediateRound = phaseAccuracyEnabled && Boolean(nextLevel);
+      const finalRound = phaseAccuracyEnabled && !nextLevel;
+
+      if (finalRound) {
+        if (input.missionCorrectAnswers === undefined || input.missionIncorrectAnswers === undefined) {
+          throw new ApiError(400, "MISSION_TOTALS_REQUIRED", "Envie os totais de respostas da fase completa.");
+        }
+
+        const expectedAnswers = LEVELS
+          .filter((item) => item.regionId === input.regionId)
+          .reduce((total, item) => total + item.questionCount, 0);
+        const receivedAnswers = input.missionCorrectAnswers + input.missionIncorrectAnswers;
+
+        if (receivedAnswers !== expectedAnswers) {
+          throw new ApiError(400, "MISSION_TOTALS_INVALID", `A fase ${input.regionId} deve registrar exatamente ${expectedAnswers} respostas.`);
+        }
+      }
+
+      const passed = intermediateRound
+        ? true
+        : finalRound
+          ? meetsPassingAccuracy(input.missionCorrectAnswers, input.missionIncorrectAnswers)
+          : input.score >= minScore;
       if (current?.status === "completed") {
-        const differs = current.score !== input.score || current.correctAnswers !== input.correctAnswers || current.incorrectAnswers !== input.incorrectAnswers || current.durationSeconds !== input.durationSeconds;
+        const differs = current.score !== input.score || current.correctAnswers !== input.correctAnswers || current.incorrectAnswers !== input.incorrectAnswers || current.missionCorrectAnswers !== input.missionCorrectAnswers || current.missionIncorrectAnswers !== input.missionIncorrectAnswers || current.durationSeconds !== input.durationSeconds;
         if (differs) throw new ApiError(409, "ATTEMPT_ALREADY_COMPLETED", "A tentativa já foi concluída com outros dados.");
         return {
           attemptId,
           status: "completed",
           score: current.score,
-          passed: current.passed ?? current.score >= minScore,
+          passed: current.passed ?? passed,
           minScore,
           maxScore: level.maxScore,
           revision: player.data().revision ?? 1,
@@ -103,7 +127,6 @@ export class GameRepository {
         bestScore: Math.max(currentProgress.bestScore, input.score),
         completedAt: passed ? currentProgress.completedAt ?? now : currentProgress.completedAt,
       };
-      const nextLevel = LEVELS.find((item) => item.regionId === input.regionId && item.levelNumber === input.levelNumber + 1);
       const regions = normalized.regions;
       const medals = { ...(data.medals ?? {}) };
       const awardedMedals = [];

@@ -6,6 +6,8 @@ interface CompleteAttemptPayload {
   score: number;
   correctAnswers: number;
   incorrectAnswers: number;
+  missionCorrectAnswers?: number;
+  missionIncorrectAnswers?: number;
 }
 
 export interface AttemptCompleteResponse {

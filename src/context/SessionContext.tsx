@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { apiGet, apiPost, ApiError } from "../utils/api";
 import type { GameStateResponse } from "../types/api";
 
@@ -36,6 +36,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       return null;
     }
   });
+  const initialBootstrapStartedRef = useRef(false);
 
   const saveGameState = useCallback((state: GameStateResponse) => {
     setGameState(state);
@@ -87,15 +88,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, [fetchState, saveGameState]);
 
   useEffect(() => {
-    let cancelled = false;
-
-    void bootstrapSession().then(() => {
-      if (cancelled) return;
-    });
-
-    return () => {
-      cancelled = true;
-    };
+    if (initialBootstrapStartedRef.current) return;
+    initialBootstrapStartedRef.current = true;
+    void bootstrapSession();
   }, [bootstrapSession]);
 
   return (
