@@ -41,10 +41,46 @@ export interface QuizQuestion {
   fact: string;
 }
 
-export const NORDESTE_QUESTIONS = database.questions.map((question) => ({
-  ...question,
-  options: question.options.map((option) => ({
-    ...option,
-    image: localImages[option.id] ?? option.image,
-  })),
-})) as QuizQuestion[];
+export function normalizeNordesteQuestions(questions: QuizQuestion[]): QuizQuestion[] {
+  return questions.map((question) => {
+    const correctOptions = question.options.filter((option) => option.correct);
+    const wrongOptions = question.options
+      .filter((option) => !option.correct)
+      .slice(0, 3);
+
+    const options = [...correctOptions, ...wrongOptions].slice(0, 4);
+
+    if (options.length < 4) {
+      while (options.length < 4) {
+        const fallbackId = `${question.id}-fallback-${options.length}`;
+        options.push({
+          id: fallbackId,
+          text: `Alternativa ${options.length + 1}`,
+          correct: false,
+          simple: true,
+        });
+      }
+    }
+
+    const normalizedOptions = options.map((option, index) => ({
+      ...option,
+      id: option.id ?? `${question.id}-option-${index}`,
+      image: localImages[option.id] ?? option.image,
+    }));
+
+    return {
+      ...question,
+      options: normalizedOptions,
+    };
+  });
+}
+
+export const NORDESTE_QUESTIONS = normalizeNordesteQuestions(
+  database.questions.map((question) => ({
+    ...question,
+    options: question.options.map((option) => ({
+      ...option,
+      image: localImages[option.id] ?? option.image,
+    })),
+  })) as QuizQuestion[],
+);

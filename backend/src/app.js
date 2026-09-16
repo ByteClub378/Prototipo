@@ -6,6 +6,7 @@ import { env } from "./config/env.js";
 import { checkDatabase } from "./database/firebase.js";
 import { errorHandler, notFound } from "./middleware/errors.js";
 import apiRouter from "./routes/api.js";
+import { ApiError } from "./utils/api-error.js";
 export const app = express();
 app.disable("x-powered-by");
 if (env.TRUST_PROXY)
@@ -19,6 +20,13 @@ app.get("/health/ready", async (_request, response) => {
     await checkDatabase();
     response.json({ data: { status: "ready" } });
 });
-app.use("/api/v1", apiRouter);
+app.use("/api/v1", (request, _response, next) => {
+    const origin = request.get("origin");
+    if (origin && origin !== env.FRONTEND_ORIGIN) {
+        next(new ApiError(403, "ORIGIN_NOT_ALLOWED", "Origem não autorizada."));
+        return;
+    }
+    next();
+}, apiRouter);
 app.use(notFound);
 app.use(errorHandler);

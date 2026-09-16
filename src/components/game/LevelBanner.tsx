@@ -13,9 +13,11 @@ interface LevelBannerProps {
   level: LevelBannerLevel; // Se preferir, substitua 'LevelBannerLevel' por 'NorthLevelConfig'
   totalLevels: number;
   onStart: () => void;
+  buttonLabel?: string;
+  disabled?: boolean;
 }
 
-function LevelBanner({ level, totalLevels, onStart }: LevelBannerProps) {
+function LevelBanner({ level, totalLevels, onStart, buttonLabel = "Começar", disabled = false }: LevelBannerProps) {
   return (
     <GameCard className="level-banner">
       <span className="level-banner__icon">{level.bannerIcon}</span>
@@ -24,8 +26,8 @@ function LevelBanner({ level, totalLevels, onStart }: LevelBannerProps) {
       </span>
       <h2 className="level-banner__title">{level.title}</h2>
       <p className="level-banner__instruction">{level.instruction}</p>
-      <button className="level-banner__button" onClick={onStart}>
-        Começar
+      <button className="level-banner__button" onClick={onStart} disabled={disabled}>
+        {buttonLabel}
       </button>
     </GameCard>
   );

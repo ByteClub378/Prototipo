@@ -10,9 +10,15 @@ export const completeAttemptSchema = z.object({
     score: z.number().int().min(0).max(1_000_000),
     correctAnswers: z.number().int().min(0).max(10_000),
     incorrectAnswers: z.number().int().min(0).max(10_000),
+    missionCorrectAnswers: z.number().int().min(0).max(10_000).optional(),
+    missionIncorrectAnswers: z.number().int().min(0).max(10_000).optional(),
     durationSeconds: z.number().int().min(1).max(86_400),
 }).strict().refine((data) => data.correctAnswers + data.incorrectAnswers > 0, {
     message: "A tentativa deve conter ao menos uma resposta.",
+}).refine((data) =>
+    (data.missionCorrectAnswers === undefined) ===
+    (data.missionIncorrectAnswers === undefined), {
+    message: "Os totais da missão devem ser enviados juntos.",
 });
 export class GameService {
     repository;

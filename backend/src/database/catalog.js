@@ -7,18 +7,36 @@ export const REGIONS = [
 ];
 
 export const LEVELS = [
-  { regionId: "norte", levelNumber: 1, name: "Escolha o ambiente", maxScore: 400, minScore: 240 },
-  { regionId: "norte", levelNumber: 2, name: "Combina ou não?", maxScore: 400, minScore: 240 },
-  { regionId: "norte", levelNumber: 3, name: "Desafio relâmpago", maxScore: 500, minScore: 300 },
-  { regionId: "nordeste", levelNumber: 1, name: "Descoberta", maxScore: 400, minScore: 240 },
-  { regionId: "nordeste", levelNumber: 2, name: "Explorador", maxScore: 400, minScore: 240 },
-  { regionId: "nordeste", levelNumber: 3, name: "Desafio relâmpago", maxScore: 400, minScore: 240 },
+  { regionId: "norte", levelNumber: 1, name: "Escolha o ambiente", questionCount: 4, maxScore: 400, minScore: 240 },
+  { regionId: "norte", levelNumber: 2, name: "Combina ou não?", questionCount: 4, maxScore: 400, minScore: 240 },
+  { regionId: "norte", levelNumber: 3, name: "Desafio relâmpago", questionCount: 5, maxScore: 500, minScore: 300 },
+  { regionId: "nordeste", levelNumber: 1, name: "Descoberta", questionCount: 4, maxScore: 400, minScore: 240 },
+  { regionId: "nordeste", levelNumber: 2, name: "Explorador", questionCount: 4, maxScore: 400, minScore: 240 },
+  { regionId: "nordeste", levelNumber: 3, name: "Desafio relâmpago", questionCount: 4, maxScore: 400, minScore: 240 },
 ];
 
 export const MEDALS = [
   { id: "norte-completo", name: "Medalha do Norte", description: "Conclua todos os níveis da região Norte.", regionId: "norte", criterionType: "region_complete" },
   { id: "nordeste-completo", name: "Medalha do Nordeste", description: "Conclua todos os níveis da região Nordeste.", regionId: "nordeste", criterionType: "region_complete" },
 ];
+
+export const PASSING_PERCENT = 60;
+
+export const minimumScore = (level) =>
+  level.minScore ??
+  Math.ceil(
+    level.maxScore *
+      PASSING_PERCENT /
+      100,
+  );
+
+export const meetsPassingAccuracy = (correctAnswers, incorrectAnswers) => {
+  const answered = correctAnswers + incorrectAnswers;
+  return answered > 0 && correctAnswers * 100 >= answered * PASSING_PERCENT;
+};
+
+export const usesPhaseAccuracy = (regionId) =>
+  regionId === "norte" || regionId === "nordeste";
 
 export const levelId = (regionId, levelNumber) => `${regionId}_${levelNumber}`;
 

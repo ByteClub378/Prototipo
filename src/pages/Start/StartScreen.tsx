@@ -1,16 +1,28 @@
 import { useNavigate } from "react-router-dom";
 import { useProgress } from "../../context/ProgressContext";
+import { useState } from "react";
 import "./StartScreen.css";
 
 function StartScreen() {
   const navigate = useNavigate();
   const { progress, resetProgress } = useProgress();
+  const [isResetting, setIsResetting] = useState(false);
+  const [resetError, setResetError] = useState(false);
 
   const hasSavedProgress = Object.values(progress).some((status) => status === "completed");
 
-  function handleNewGame() {
-    resetProgress();
-    navigate("/mapa");
+  async function handleNewGame() {
+    if (isResetting) return;
+    setIsResetting(true);
+    setResetError(false);
+    try {
+      await resetProgress();
+      navigate("/mapa");
+    } catch {
+      setResetError(true);
+    } finally {
+      setIsResetting(false);
+    }
   }
 
   function handleContinue() {
@@ -42,9 +54,12 @@ function StartScreen() {
           <button
             className="start-screen__menu-item start-screen__menu-item--primary"
             onClick={handleNewGame}
+            disabled={isResetting}
           >
-            🎮 Novo Jogo
+            {isResetting ? "Conectando..." : "🎮 Novo Jogo"}
           </button>
+
+          {resetError && <p>Não foi possível reiniciar. Tente novamente.</p>}
 
           {hasSavedProgress && (
             <button className="start-screen__menu-item" onClick={handleContinue}>

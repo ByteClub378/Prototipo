@@ -6,7 +6,6 @@ import GameCard from "../../../components/ui/GameCard";
 import ProgressBar from "../../../components/ui/ProgressBar";
 import FeedbackMessage from "../../../components/game/FeedbackMessage";
 import MissionTimer from "../../../components/game/MissionTimer";
-import { useProgress } from "../../../context/ProgressContext";
 import { HABITATS, getItemById, type MissionItem } from "../../../data/missions/northMission";
 import { createNorthLevels } from "../../../data/missions/northLevels";
 import { playSuccessSound, playErrorSound, playTimeoutSound } from "../../../utils/sound";
@@ -36,10 +35,9 @@ const MINIMUM_ACCURACY = 0.6;
 
 function NorthPhase() {
   const navigate = useNavigate();
-  const { completeRegion } = useProgress();
   const { addPoints, resetScore } = useScore();
   const { startAttempt, completeAttempt } = useAttempt("norte");
-  const { refreshState } = useSession();
+  const { status, refreshState, retryBootstrap } = useSession();
 
   // Contadores da tentativa ATUAL (resetam a cada nível) — usados só pro
   // PATCH /attempts/{id}/complete, não se confundem com o placar global.
@@ -65,11 +63,14 @@ function NorthPhase() {
   const [isItemSelected, setIsItemSelected] = useState(false);
   const [timerNonce, setTimerNonce] = useState(0);
   const [isResolving, setIsResolving] = useState(false);
+  const [isStarting, setIsStarting] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const level = levels[levelIndex];
   const isLastLevel = levelIndex === levels.length - 1;
 
   const advanceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isSubmittingRef = useRef(false);
 
   function scheduleAdvance(callback: () => void, delay: number) {
     if (advanceTimeoutRef.current) {
@@ -86,7 +87,7 @@ function NorthPhase() {
     };
   }, []);
 
-  function startLevel(idx: number, showLevelBanner = idx === 0) {
+  function startLevel(idx: number, showLevelBanner = true) {
     const nextLevel = levels[idx];
     setShowBanner(showLevelBanner);
     setLevelComplete(false);
@@ -107,11 +108,23 @@ function NorthPhase() {
   }, [levelIndex]);
 
   async function finishLevel() {
+    if (isSubmittingRef.current) return;
+
+    isSubmittingRef.current = true;
+    setIsSubmitting(true);
+    setIsResolving(true);
     logEvent({ type: "level_complete", phase: "north", level: level.id });
+    const missionIncorrectAnswers = missionAnsweredRef.current - missionCorrectRef.current;
     const result = await completeAttempt({
       score: levelScoreRef.current,
       correctAnswers: levelCorrectRef.current,
       incorrectAnswers: levelIncorrectRef.current,
+      ...(isLastLevel
+        ? {
+            missionCorrectAnswers: missionCorrectRef.current,
+            missionIncorrectAnswers,
+          }
+        : {}),
     });
 
     if (!result) {
@@ -121,6 +134,8 @@ function NorthPhase() {
         message: "Confira sua conexão e tente novamente.",
       });
       setIsResolving(false);
+      isSubmittingRef.current = false;
+      setIsSubmitting(false);
       return;
     }
 
@@ -131,26 +146,59 @@ function NorthPhase() {
       const accuracy = answered > 0 ? correct / answered : 0;
 
       setFinalAccuracy(accuracy);
-      if (accuracy >= MINIMUM_ACCURACY) {
-        completeRegion("norte");
+      if (result.passed && accuracy >= MINIMUM_ACCURACY) {
         setMissionComplete(true);
       } else {
         setMissionFailed(true);
       }
     } else {
-      setLevelIndex((idx) => idx + 1);
+      setLevelComplete(true);
     }
+    isSubmittingRef.current = false;
+    setIsSubmitting(false);
   }
 
-  function handleStartLevel() {
-    setShowBanner(false);
+  async function handleStartLevel() {
+    if (isStarting) return;
+
+    setIsStarting(true);
+    if (status === "loading") {
+      setIsStarting(false);
+      return;
+    }
+    if (status === "error") {
+      const recovered = await retryBootstrap();
+      if (!recovered) {
+        setFeedback({
+          type: "error",
+          title: "Não foi possível conectar",
+          message: "Tentar conectar novamente.",
+        });
+        setIsStarting(false);
+        return;
+      }
+    }
     if (levelIndex === 0) {
       missionCorrectRef.current = 0;
       missionAnsweredRef.current = 0;
       setMissionFailed(false);
       setFinalAccuracy(0);
     }
-    startAttempt(level.id);
+
+    const started = await startAttempt(level.id);
+    if (!started) {
+      setFeedback({
+        type: "error",
+        title: "Não foi possível iniciar",
+        message: "Verifique sua conexão e tente novamente.",
+      });
+      setIsStarting(false);
+      return;
+    }
+
+    startLevel(levelIndex, true);
+    setShowBanner(false);
+    setIsStarting(false);
   }
 
   function restartMission() {
@@ -211,9 +259,9 @@ function NorthPhase() {
   }
 
   function advanceSequentialItem() {
-    setIsResolving(false);
     const nextPos = currentItemPos + 1;
     if (nextPos < itemOrder.length) {
+      setIsResolving(false);
       setCurrentItemPos(nextPos);
       setIsItemSelected(false);
       setTimerNonce((n) => n + 1);
@@ -226,7 +274,7 @@ function NorthPhase() {
   }
 
   function handleSequentialDrop(zoneId: string) {
-    if (!currentItem || isResolving) return;
+    if (!currentItem || isResolving || isSubmitting) return;
     const correctZoneId = getCorrectZoneId(currentItem);
     missionAnsweredRef.current += 1;
 
@@ -258,7 +306,7 @@ function NorthPhase() {
   }
 
   function handleItemTimeout() {
-    if (!currentItem || isResolving) return;
+    if (!currentItem || isResolving || isSubmitting) return;
 
     missionAnsweredRef.current += 1;
 
@@ -295,7 +343,7 @@ function NorthPhase() {
   }
 
   const timerDuration = level.durationSeconds;
-  const isTimerActive = !showBanner && !levelComplete && !missionComplete && !isResolving;
+  const isTimerActive = !showBanner && !levelComplete && !missionComplete && !isResolving && !isSubmitting;
 
   const progressCurrent = currentItemPos + 1;
   const progressTotal = itemOrder.length;
@@ -347,13 +395,15 @@ function NorthPhase() {
           level={level}
           totalLevels={levels.length}
           onStart={handleStartLevel}
+          buttonLabel={status === "loading" ? "Conectando..." : status === "error" ? "Tentar conectar novamente" : "Começar"}
+          disabled={status === "loading" || isStarting}
         />
       ) : levelComplete ? (
         <GameCard className="north-phase__complete">
-          <h2>✅ Nível concluído!</h2>
+          <h2>✅ Rodada concluída!</h2>
           <p>Muito bem! Vamos para o próximo desafio.</p>
           <button className="north-phase__back-button" onClick={goToNextLevel}>
-            Próximo nível
+            Próxima rodada
           </button>
         </GameCard>
       ) : (
@@ -371,8 +421,10 @@ function NorthPhase() {
               <div className="north-phase__board north-phase__board--single">
                 <div
                   className={`north-phase__current-item ${isItemSelected ? "north-phase__current-item--selected" : ""}`}
-                  draggable={!isResolving}
-                  onClick={() => setIsItemSelected((selected) => !selected)}
+                  draggable={!isResolving && !isSubmitting}
+                  onClick={() => {
+                    if (!isSubmitting) setIsItemSelected((selected) => !selected);
+                  }}
                   onDragStart={handleItemDragStart}
                   onDragEnd={handleItemDragEnd}
                   aria-pressed={isItemSelected}
@@ -389,6 +441,7 @@ function NorthPhase() {
                       onDragOver={handleDragOver}
                       onDrop={() => handleSequentialDrop(zone.id)}
                       onClick={() => handleSequentialDrop(zone.id)}
+                      disabled={isResolving || isSubmitting}
                       aria-label={`Enviar item para ${zone.name}`}
                     >
                       <span className="north-phase__zone-icon">{zone.icon}</span>

@@ -1,36 +1,28 @@
 import { Timestamp } from "firebase-admin/firestore";
 import { db } from "../database/firebase.js";
-import { LEVELS, MEDALS, REGIONS, initialProgress, levelId } from "../database/catalog.js";
+import { LEVELS, MEDALS, REGIONS, initialProgress, levelId, meetsPassingAccuracy, minimumScore, usesPhaseAccuracy } from "../database/catalog.js";
 import { ApiError } from "../utils/api-error.js";
 
 const date = (value) => value?.toDate?.() ?? value ?? null;
 
-const lockedLevelProgress = () => ({
-  status: "locked",
-  bestScore: 0,
-  attemptCount: 0,
-  unlockedAt: null,
-  completedAt: null,
-});
+function normalizedProgress(data) {
+  const initial = initialProgress();
+  const regions = { ...initial.regions, ...(data.regions ?? {}) };
+  const levels = { ...initial.levels, ...(data.levels ?? {}) };
 
-const storedRegionProgress = (data, region) => data.regions?.[region.id] ?? {
-  status: region.sortOrder === 1 ? "unlocked" : "locked",
-  unlockedAt: null,
-  completedAt: null,
-};
+  for (const region of REGIONS) {
+    const firstLevelId = levelId(region.id, 1);
+    if (regions[region.id]?.status !== "locked" && levels[firstLevelId]?.status === "locked") {
+      levels[firstLevelId] = {
+        ...levels[firstLevelId],
+        status: "unlocked",
+        unlockedAt: regions[region.id].unlockedAt ?? null,
+      };
+    }
+  }
 
-const storedLevelProgress = (data, level) => {
-  const stored = data.levels?.[levelId(level.regionId, level.levelNumber)];
-  if (stored) return stored;
-
-  const region = data.regions?.[level.regionId];
-  const regionIsAvailable = region?.status === "unlocked" || region?.status === "completed";
-  const firstLevelIsAvailable = level.levelNumber === 1
-    && (level.regionId === "norte" || regionIsAvailable);
-  return firstLevelIsAvailable
-    ? { ...lockedLevelProgress(), status: "unlocked" }
-    : lockedLevelProgress();
-};
+  return { regions, levels };
+}
 
 export class GameRepository {
   async loadPlayer(playerId) {
@@ -42,30 +34,20 @@ export class GameRepository {
   async getProgress(playerId) {
     const player = await this.loadPlayer(playerId);
     const data = player.data();
+    const normalized = normalizedProgress(data);
     return {
-      regions: REGIONS.map((region) => {
-        const progress = storedRegionProgress(data, region);
-        return { regionId: region.id, name: region.name, ...progress, unlockedAt: date(progress.unlockedAt), completedAt: date(progress.completedAt) };
-      }),
-      levels: LEVELS.map((level) => {
-        const progress = storedLevelProgress(data, level);
-        return { ...level, ...progress, unlockedAt: date(progress.unlockedAt), completedAt: date(progress.completedAt) };
-      }),
+      regions: REGIONS.map((region) => ({ regionId: region.id, name: region.name, ...normalized.regions[region.id], unlockedAt: date(normalized.regions[region.id]?.unlockedAt), completedAt: date(normalized.regions[region.id]?.completedAt) })),
+      levels: LEVELS.map((level) => ({ ...level, ...normalized.levels[levelId(level.regionId, level.levelNumber)], unlockedAt: date(normalized.levels[levelId(level.regionId, level.levelNumber)]?.unlockedAt), completedAt: date(normalized.levels[levelId(level.regionId, level.levelNumber)]?.completedAt) })),
     };
   }
 
   async getState(playerId) {
     const player = await this.loadPlayer(playerId);
     const data = player.data();
+    const normalized = normalizedProgress(data);
     const progress = {
-      regions: REGIONS.map((region) => {
-        const item = storedRegionProgress(data, region);
-        return { regionId: region.id, name: region.name, ...item, unlockedAt: date(item.unlockedAt), completedAt: date(item.completedAt) };
-      }),
-      levels: LEVELS.map((level) => {
-        const item = storedLevelProgress(data, level);
-        return { ...level, ...item, unlockedAt: date(item.unlockedAt), completedAt: date(item.completedAt) };
-      }),
+      regions: REGIONS.map((region) => ({ regionId: region.id, name: region.name, ...normalized.regions[region.id], unlockedAt: date(normalized.regions[region.id]?.unlockedAt), completedAt: date(normalized.regions[region.id]?.completedAt) })),
+      levels: LEVELS.map((level) => ({ ...level, ...normalized.levels[levelId(level.regionId, level.levelNumber)], unlockedAt: date(normalized.levels[levelId(level.regionId, level.levelNumber)]?.unlockedAt), completedAt: date(normalized.levels[levelId(level.regionId, level.levelNumber)]?.completedAt) })),
     };
     const medals = MEDALS.filter((medal) => data.medals?.[medal.id]).map((medal) => ({ ...medal, awardedAt: date(data.medals[medal.id].awardedAt) }));
     return { playerId: data.publicId, revision: data.revision ?? 1, progress, medals };
@@ -74,7 +56,7 @@ export class GameRepository {
   async startAttempt(playerId, attemptId, regionId, levelNumber) {
     const level = LEVELS.find((item) => item.regionId === regionId && item.levelNumber === levelNumber);
     if (!level) throw new ApiError(404, "LEVEL_NOT_FOUND", "Nível inexistente ou indisponível.");
-    return { attemptId, status: "accepted", minScore: level.minScore, maxScore: level.maxScore, persisted: false, idempotent: true };
+    return { attemptId, status: "accepted", minScore: minimumScore(level), maxScore: level.maxScore, persisted: false, idempotent: true };
   }
 
   async completeAttempt(playerId, attemptId, input) {
@@ -90,28 +72,67 @@ export class GameRepository {
       const level = LEVELS.find((item) => item.regionId === input.regionId && item.levelNumber === input.levelNumber);
       if (!level) throw new ApiError(404, "LEVEL_NOT_FOUND", "Nível inexistente ou indisponível.");
       if (input.score > level.maxScore) throw new ApiError(400, "SCORE_OUT_OF_RANGE", `A pontuação máxima deste nível é ${level.maxScore}.`);
-      const score = Math.max(0, input.score);
+      const nextLevel = LEVELS.find((item) => item.regionId === input.regionId && item.levelNumber === input.levelNumber + 1);
+      const minScore = minimumScore(level);
+      const phaseAccuracyEnabled = usesPhaseAccuracy(input.regionId);
+      const intermediateRound = phaseAccuracyEnabled && Boolean(nextLevel);
+      const finalRound = phaseAccuracyEnabled && !nextLevel;
+
+      if (finalRound) {
+        if (input.missionCorrectAnswers === undefined || input.missionIncorrectAnswers === undefined) {
+          throw new ApiError(400, "MISSION_TOTALS_REQUIRED", "Envie os totais de respostas da fase completa.");
+        }
+
+        const expectedAnswers = LEVELS
+          .filter((item) => item.regionId === input.regionId)
+          .reduce((total, item) => total + item.questionCount, 0);
+        const receivedAnswers = input.missionCorrectAnswers + input.missionIncorrectAnswers;
+
+        if (receivedAnswers !== expectedAnswers) {
+          throw new ApiError(400, "MISSION_TOTALS_INVALID", `A fase ${input.regionId} deve registrar exatamente ${expectedAnswers} respostas.`);
+        }
+      }
+
+      const passed = intermediateRound
+        ? true
+        : finalRound
+          ? meetsPassingAccuracy(input.missionCorrectAnswers, input.missionIncorrectAnswers)
+          : input.score >= minScore;
       if (current?.status === "completed") {
-        const differs = current.score !== score || current.correctAnswers !== input.correctAnswers || current.incorrectAnswers !== input.incorrectAnswers || current.durationSeconds !== input.durationSeconds;
+        const differs = current.score !== input.score || current.correctAnswers !== input.correctAnswers || current.incorrectAnswers !== input.incorrectAnswers || current.missionCorrectAnswers !== input.missionCorrectAnswers || current.missionIncorrectAnswers !== input.missionIncorrectAnswers || current.durationSeconds !== input.durationSeconds;
         if (differs) throw new ApiError(409, "ATTEMPT_ALREADY_COMPLETED", "A tentativa já foi concluída com outros dados.");
-        return { attemptId, status: "completed", score: current.score, passed: current.passed ?? current.score >= level.minScore, minScore: level.minScore, maxScore: level.maxScore, idempotent: true };
+        return {
+          attemptId,
+          status: "completed",
+          score: current.score,
+          passed: current.passed ?? passed,
+          minScore,
+          maxScore: level.maxScore,
+          revision: player.data().revision ?? 1,
+          awardedMedals: current.awardedMedals ?? [],
+          idempotent: true,
+        };
       }
       const data = player.data();
       const now = Timestamp.now();
-      const progress = { ...data.levels };
-      const currentProgress = progress[requestedLevelId] ?? storedLevelProgress(data, level);
-      if (currentProgress.status === "locked") throw new ApiError(403, "LEVEL_LOCKED", "Este nível ainda está bloqueado.");
+      const normalized = normalizedProgress(data);
+      const progress = normalized.levels;
+      const currentProgress = progress[requestedLevelId];
+      if (!currentProgress || currentProgress.status === "locked") throw new ApiError(403, "LEVEL_LOCKED", "Este nível ainda está bloqueado.");
       const attemptNumber = currentProgress.attemptCount + 1;
-      const passed = score >= level.minScore;
-      progress[requestedLevelId] = { ...currentProgress, status: passed ? "completed" : currentProgress.status, attemptCount: attemptNumber, bestScore: Math.max(currentProgress.bestScore, score), completedAt: passed ? currentProgress.completedAt ?? now : currentProgress.completedAt };
-      const nextLevel = LEVELS.find((item) => item.regionId === input.regionId && item.levelNumber === input.levelNumber + 1);
-      const regions = { ...data.regions };
+      progress[requestedLevelId] = {
+        ...currentProgress,
+        status: passed ? "completed" : currentProgress.status,
+        attemptCount: attemptNumber,
+        bestScore: Math.max(currentProgress.bestScore, input.score),
+        completedAt: passed ? currentProgress.completedAt ?? now : currentProgress.completedAt,
+      };
+      const regions = normalized.regions;
       const medals = { ...(data.medals ?? {}) };
       const awardedMedals = [];
       if (passed && nextLevel) {
         const id = levelId(nextLevel.regionId, nextLevel.levelNumber);
-        const nextProgress = progress[id] ?? lockedLevelProgress();
-        progress[id] = { ...nextProgress, status: nextProgress.status === "locked" ? "unlocked" : nextProgress.status, unlockedAt: nextProgress.unlockedAt ?? now };
+        progress[id] = { ...progress[id], status: progress[id].status === "locked" ? "unlocked" : progress[id].status, unlockedAt: progress[id].unlockedAt ?? now };
       } else if (passed) {
         const complete = LEVELS.filter((item) => item.regionId === input.regionId).every((item) => progress[levelId(item.regionId, item.levelNumber)]?.status === "completed");
         if (complete) {
@@ -120,11 +141,9 @@ export class GameRepository {
           const nextRegion = REGIONS.find((item) => item.sortOrder === region.sortOrder + 1);
           if (nextRegion) {
             regions[nextRegion.id] = { ...regions[nextRegion.id], status: "unlocked", unlockedAt: regions[nextRegion.id].unlockedAt ?? now };
-            const firstNextLevel = LEVELS.find((item) => item.regionId === nextRegion.id && item.levelNumber === 1);
-            if (firstNextLevel) {
-              const firstNextLevelId = levelId(firstNextLevel.regionId, firstNextLevel.levelNumber);
-              const firstNextProgress = progress[firstNextLevelId] ?? lockedLevelProgress();
-              progress[firstNextLevelId] = { ...firstNextProgress, status: firstNextProgress.status === "locked" ? "unlocked" : firstNextProgress.status, unlockedAt: firstNextProgress.unlockedAt ?? now };
+            const firstNextLevel = levelId(nextRegion.id, 1);
+            if (progress[firstNextLevel]) {
+              progress[firstNextLevel] = { ...progress[firstNextLevel], status: "unlocked", unlockedAt: progress[firstNextLevel].unlockedAt ?? now };
             }
           }
           for (const medal of MEDALS.filter((item) => item.regionId === input.regionId && item.criterionType === "region_complete")) {
@@ -132,10 +151,10 @@ export class GameRepository {
           }
         }
       }
-      const attemptData = { ...input, score, playerId, levelId: requestedLevelId, attemptNumber, status: "completed", passed, startedAt: now, completedAt: now };
+      const attemptData = { ...input, playerId, levelId: requestedLevelId, attemptNumber, status: "completed", passed, minScore, maxScore: level.maxScore, awardedMedals, startedAt: now, completedAt: now };
       if (attempt.exists) transaction.update(attemptRef, attemptData); else transaction.create(attemptRef, attemptData);
       transaction.update(playerRef, { levels: progress, regions, medals, revision: (data.revision ?? 1) + 1, lastSeenAt: now });
-      return { attemptId, status: "completed", score, passed, minScore: level.minScore, maxScore: level.maxScore, revision: (data.revision ?? 1) + 1, idempotent: false, awardedMedals };
+      return { attemptId, status: "completed", score: input.score, passed, minScore, maxScore: level.maxScore, revision: (data.revision ?? 1) + 1, idempotent: false, awardedMedals };
     });
   }
 

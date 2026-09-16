@@ -12,6 +12,7 @@ export interface ServerLevelProgress {
   regionId: RegionId;
   levelNumber: number;
   name: string;
+  questionCount: number;
   maxScore: number;
   status: RegionStatus;
   bestScore: number;

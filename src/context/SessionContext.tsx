@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { apiGet, apiPost, ApiError } from "../utils/api";
 import type { GameStateResponse } from "../types/api";
 
@@ -20,14 +20,23 @@ interface SessionContextValue {
   playerId: string | null;
   gameState: GameStateResponse | null;
   refreshState: () => Promise<GameStateResponse | null>;
+  retryBootstrap: () => Promise<boolean>;
 }
 
 const SessionContext = createContext<SessionContextValue | undefined>(undefined);
 
 export function SessionProvider({ children }: { children: ReactNode }) {
-  const [status, setStatus] = useState<SessionStatus>("idle");
-  const [playerId, setPlayerId] = useState<string | null>(null);
-  const [gameState, setGameState] = useState<GameStateResponse | null>(null);
+  const [status, setStatus] = useState<SessionStatus>("loading");
+  const [playerId, setPlayerId] = useState<string | null>(() => localStorage.getItem(PLAYER_ID_STORAGE_KEY));
+  const [gameState, setGameState] = useState<GameStateResponse | null>(() => {
+    try {
+      const cached = localStorage.getItem(GAME_STATE_STORAGE_KEY);
+      return cached ? JSON.parse(cached) as GameStateResponse : null;
+    } catch {
+      return null;
+    }
+  });
+  const initialBootstrapStartedRef = useRef(false);
 
   const saveGameState = useCallback((state: GameStateResponse) => {
     setGameState(state);
@@ -37,52 +46,55 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     return state;
   }, []);
 
+  const fetchState = useCallback(async () => {
+    try {
+      return await apiGet<GameStateResponse>("/me/state");
+    } catch (error) {
+      if (!(error instanceof ApiError) || error.status !== 401) throw error;
+      await apiPost("/session/refresh");
+      return apiGet<GameStateResponse>("/me/state");
+    }
+  }, []);
+
   const refreshState = useCallback(async () => {
     try {
-      const state = await apiGet<GameStateResponse>("/me/state");
+      const state = await fetchState();
       saveGameState(state);
       setStatus("ready");
       return state;
     } catch (error) {
       console.warn("[session] Erro ao sincronizar progresso:", error);
+      setStatus("error");
       return null;
     }
-  }, [saveGameState]);
+  }, [fetchState, saveGameState]);
+
+  const bootstrapSession = useCallback(async () => {
+    setStatus("loading");
+    try {
+      const result = await apiPost<BootstrapResponse>("/session/bootstrap");
+      setPlayerId(result.playerId);
+      localStorage.setItem(PLAYER_ID_STORAGE_KEY, result.playerId);
+      const state = await fetchState();
+      saveGameState(state);
+      setStatus("ready");
+      return true;
+    } catch (error) {
+      const message = error instanceof ApiError ? error.message : "Erro ao conectar com o servidor.";
+      console.warn("[session] Falha ao iniciar sessão:", message);
+      setStatus("error");
+      return false;
+    }
+  }, [fetchState, saveGameState]);
 
   useEffect(() => {
-    let cancelled = false;
-
-    async function bootstrap() {
-      setStatus("loading");
-      try {
-        const result = await apiPost<BootstrapResponse>("/session/bootstrap");
-        if (cancelled) return;
-        setPlayerId(result.playerId);
-        localStorage.setItem(PLAYER_ID_STORAGE_KEY, result.playerId);
-
-        const state = await apiGet<GameStateResponse>("/me/state");
-        if (cancelled) return;
-        saveGameState(state);
-        setStatus("ready");
-      } catch (error) {
-        if (cancelled) return;
-        // Por enquanto o app segue funcionando normalmente com o localStorage
-        // mesmo se o backend estiver fora do ar — a integração é incremental.
-        const message = error instanceof ApiError ? error.message : "Erro ao conectar com o servidor.";
-        console.warn("[session] Falha ao iniciar sessão:", message);
-        setStatus("error");
-      }
-    }
-
-    bootstrap();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [saveGameState]);
+    if (initialBootstrapStartedRef.current) return;
+    initialBootstrapStartedRef.current = true;
+    void bootstrapSession();
+  }, [bootstrapSession]);
 
   return (
-    <SessionContext.Provider value={{ status, playerId, gameState, refreshState }}>
+    <SessionContext.Provider value={{ status, playerId, gameState, refreshState, retryBootstrap: bootstrapSession }}>
       {children}
     </SessionContext.Provider>
   );
