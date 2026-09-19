@@ -118,24 +118,6 @@ no próprio domínio.
 
 🔗 [braziladventure.onrender.com](https://braziladventure.onrender.com)
 
-### Deploy na Vercel
-
-O arquivo `api/index.js` exporta o Express como uma função serverless e o
-`vercel.json` mantém `/api/v1` e `/health` no backend, enviando as demais rotas
-para a SPA React.
-
-Ao importar o repositório na Vercel, mantenha a raiz do projeto e configure:
-
-- Framework Preset: `Vite`
-- Build Command: `npm run build`
-- Output Directory: `dist`
-- Install Command: `npm install`
-
-Cadastre `NODE_ENV=production`, `FRONTEND_ORIGIN`, `SESSION_SECRET`,
-`FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL` e `FIREBASE_PRIVATE_KEY` nas
-variáveis de ambiente. `FRONTEND_ORIGIN` deve ser a URL final completa do site,
-sem barra no final. Não configure `VITE_API_URL` nem `PORT`.
-
 ---
 
 ## 🎯 Objetivo Acadêmico
