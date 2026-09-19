@@ -97,9 +97,24 @@ npm start
 
 ---
 
-## 🌎 Deploy
+## 🌎 Deploy no Render
 
-O sistema encontra-se publicado no Render:
+O projeto usa um único **Web Service**: o Express serve tanto a API quanto o
+build do React no mesmo domínio.
+
+No Render, crie um Web Service com `npm install && npm run build` como Build
+Command, `npm start` como Start Command e `/health/ready` como Health Check.
+Configure também estas variáveis:
+
+- `NODE_ENV=production`
+- `TRUST_PROXY=true`
+- `SESSION_SECRET` com uma chave aleatória de pelo menos 32 caracteres
+- `FIREBASE_PROJECT_ID`
+- `FIREBASE_CLIENT_EMAIL`
+- `FIREBASE_PRIVATE_KEY`
+
+Não configure `VITE_API_URL`: no deploy unificado, o frontend acessa `/api/v1`
+no próprio domínio.
 
 🔗 [braziladventure.onrender.com](https://braziladventure.onrender.com)
 
