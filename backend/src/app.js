@@ -2,6 +2,8 @@ import cookieParser from "cookie-parser";
 import cors from "cors";
 import express from "express";
 import helmet from "helmet";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { env } from "./config/env.js";
 import { checkDatabase } from "./database/firebase.js";
 import { errorHandler, notFound } from "./middleware/errors.js";
@@ -28,5 +30,17 @@ app.use("/api/v1", (request, _response, next) => {
     }
     next();
 }, apiRouter);
+
+// Em produção, frontend e API são publicados pelo mesmo processo e domínio.
+// As rotas da API ficam acima deste fallback para nunca receberem index.html.
+if (env.NODE_ENV === "production") {
+    const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+    const frontendDist = resolve(projectRoot, "dist");
+
+    app.use(express.static(frontendDist, { index: false }));
+    app.get(/^(?!\/api\/|\/health\/).*/, (_request, response) => {
+        response.sendFile(resolve(frontendDist, "index.html"));
+    });
+}
 app.use(notFound);
 app.use(errorHandler);

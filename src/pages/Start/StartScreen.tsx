@@ -1,25 +1,36 @@
 import { useNavigate } from "react-router-dom";
 import { useProgress } from "../../context/ProgressContext";
+import { useSession } from "../../context/SessionContext";
+import { ApiError } from "../../utils/api";
 import { useState } from "react";
 import "./StartScreen.css";
 
 function StartScreen() {
   const navigate = useNavigate();
   const { progress, resetProgress } = useProgress();
+  const { status, retryBootstrap } = useSession();
   const [isResetting, setIsResetting] = useState(false);
-  const [resetError, setResetError] = useState(false);
+  const [resetError, setResetError] = useState<string | null>(null);
 
   const hasSavedProgress = Object.values(progress).some((status) => status === "completed");
 
   async function handleNewGame() {
-    if (isResetting) return;
+    if (isResetting || status === "loading") return;
     setIsResetting(true);
-    setResetError(false);
+    setResetError(null);
     try {
+      if (status !== "ready" && !(await retryBootstrap())) {
+        throw new Error("Não foi possível conectar com o servidor.");
+      }
       await resetProgress();
       navigate("/mapa");
-    } catch {
-      setResetError(true);
+    } catch (error) {
+      console.error("[start] Falha ao iniciar novo jogo:", error);
+      setResetError(
+        error instanceof ApiError
+          ? error.message
+          : "Não foi possível iniciar. Verifique se a API está ligada e tente novamente."
+      );
     } finally {
       setIsResetting(false);
     }
@@ -54,12 +65,12 @@ function StartScreen() {
           <button
             className="start-screen__menu-item start-screen__menu-item--primary"
             onClick={handleNewGame}
-            disabled={isResetting}
+            disabled={isResetting || status === "loading"}
           >
-            {isResetting ? "Conectando..." : "🎮 Novo Jogo"}
+            {isResetting || status === "loading" ? "Conectando..." : "🎮 Novo Jogo"}
           </button>
 
-          {resetError && <p>Não foi possível reiniciar. Tente novamente.</p>}
+          {resetError && <p role="alert">{resetError}</p>}
 
           {hasSavedProgress && (
             <button className="start-screen__menu-item" onClick={handleContinue}>
