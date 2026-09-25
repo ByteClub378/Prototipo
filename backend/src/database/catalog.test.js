@@ -5,6 +5,7 @@ describe("catálogo do jogo", () => {
   it("mantém as três rodadas do Norte e do Nordeste alinhadas ao front", () => {
     expect(LEVELS.filter((level) => level.regionId === "norte")).toHaveLength(3);
     expect(LEVELS.filter((level) => level.regionId === "nordeste")).toHaveLength(3);
+    expect(LEVELS.filter((level) => level.regionId === "centro-oeste")).toHaveLength(1);
   });
 
   it("mantém quatro perguntas em cada rodada do Nordeste", () => {
@@ -28,10 +29,11 @@ describe("catálogo do jogo", () => {
     expect(usesPhaseAccuracy("sul")).toBe(false);
   });
 
-  it("exige 60% da pontuação máxima em todas as rodadas", () => {
-    for (const level of LEVELS) {
+  it("exige 60% nas rodadas de Norte e Nordeste", () => {
+    for (const level of LEVELS.filter((item) => item.regionId !== "centro-oeste")) {
       expect(level.minScore).toBe(Math.ceil(level.maxScore * 0.6));
     }
+    expect(LEVELS.find((level) => level.regionId === "centro-oeste")?.minScore).toBe(0);
   });
 
   it("começa somente com a primeira rodada do Norte liberada", () => {
@@ -42,7 +44,11 @@ describe("catálogo do jogo", () => {
     expect(progress.levels[levelId("nordeste", 1)].status).toBe("locked");
   });
 
-  it("possui medalhas para as duas regiões implementadas", () => {
-    expect(MEDALS.map((medal) => medal.regionId)).toEqual(["norte", "nordeste"]);
+  it("possui medalhas para as três regiões implementadas", () => {
+    expect(MEDALS.map((medal) => medal.regionId)).toEqual([
+      "norte",
+      "nordeste",
+      "centro-oeste",
+    ]);
   });
 });
