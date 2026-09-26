@@ -3,7 +3,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://braziladventure.onrender.com/api/:path*"
+      "destination": "https://braziladventure-api.onrender.com/api/:path*"
     },
     {
       "source": "/(.*)",
