@@ -13,11 +13,13 @@ export const LEVELS = [
   { regionId: "nordeste", levelNumber: 1, name: "Descoberta", questionCount: 4, maxScore: 400, minScore: 240 },
   { regionId: "nordeste", levelNumber: 2, name: "Explorador", questionCount: 4, maxScore: 400, minScore: 240 },
   { regionId: "nordeste", levelNumber: 3, name: "Desafio relâmpago", questionCount: 4, maxScore: 400, minScore: 240 },
+  { regionId: "centro-oeste", levelNumber: 1, name: "Guardiões do Centro-Oeste", questionCount: 8, maxScore: 800, minScore: 0 },
 ];
 
 export const MEDALS = [
   { id: "norte-completo", name: "Medalha do Norte", description: "Conclua todos os níveis da região Norte.", regionId: "norte", criterionType: "region_complete" },
   { id: "nordeste-completo", name: "Medalha do Nordeste", description: "Conclua todos os níveis da região Nordeste.", regionId: "nordeste", criterionType: "region_complete" },
+  { id: "centro-oeste-completo", name: "Medalha do Centro-Oeste", description: "Encontre as oito descobertas do Centro-Oeste.", regionId: "centro-oeste", criterionType: "region_complete" },
 ];
 
 export const PASSING_PERCENT = 60;

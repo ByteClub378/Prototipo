@@ -17,6 +17,7 @@ const LOCKED_COLOR = "#B0BEC5";
 const REGION_ROUTES: Partial<Record<string, string>> = {
   norte: "/missao/norte",
   nordeste: "/missao/nordeste",
+  "centro-oeste": "/missao/centro-oeste",
 };
 
 function RegionMap() {
@@ -25,7 +26,7 @@ function RegionMap() {
 
   function handleRegionClick(regionId: string, status: RegionStatus) {
     if (status === "locked") return;
-    
+
     const route = REGION_ROUTES[regionId];
     if (route) {
       navigate(route);
