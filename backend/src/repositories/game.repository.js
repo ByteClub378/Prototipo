@@ -153,7 +153,16 @@ export class GameRepository {
       }
       const attemptData = { ...input, playerId, levelId: requestedLevelId, attemptNumber, status: "completed", passed, minScore, maxScore: level.maxScore, awardedMedals, startedAt: now, completedAt: now };
       if (attempt.exists) transaction.update(attemptRef, attemptData); else transaction.create(attemptRef, attemptData);
-      transaction.update(playerRef, { levels: progress, regions, medals, revision: (data.revision ?? 1) + 1, lastSeenAt: now });
+      transaction.update(playerRef, {
+        levels: progress,
+        regions,
+        medals,
+        revision: (data.revision ?? 1) + 1,
+        lastSeenAt: now,
+        hasPlayed: true,
+        firstPlayedAt: data.firstPlayedAt ?? now,
+        completedAttemptCount: (data.completedAttemptCount ?? 0) + 1,
+      });
       return { attemptId, status: "completed", score: input.score, passed, minScore, maxScore: level.maxScore, revision: (data.revision ?? 1) + 1, idempotent: false, awardedMedals };
     });
   }
