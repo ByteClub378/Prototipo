@@ -8,6 +8,7 @@ import Adventures from "./pages/Adventures/Adventures";
 import NorthPhase from "./pages/phases/North/NorthPhase";
 import NordestePhase from "./pages/phases/northeast/NordestePhase";
 import CenterWestPhase from "./pages/phases/centerwest/CenterWestPhase";
+import SudestePhase from "./pages/phases/southeast/southeastPhase";
 import CreditsScreen from "./pages/Credits/CreditsScreen";
 
 
@@ -25,6 +26,7 @@ function App() {
         <Route path="/missao/norte" element={<NorthPhase />} />
         <Route path="/missao/nordeste" element={<NordestePhase />} />
         <Route path="/missao/centro-oeste" element={<CenterWestPhase />} />
+        <Route path="/missao/sudeste" element={<SudestePhase />} />
         <Route path="/creditos" element={<CreditsScreen />} />
       </Route>
     </Routes>
