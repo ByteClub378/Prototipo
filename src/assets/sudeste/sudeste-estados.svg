@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 390" role="img" aria-labelledby="title desc">
+  <title id="title">Mapa esquemático dos estados da Região Sudeste</title>
+  <desc id="desc">Mapa separado em quatro áreas: São Paulo, Minas Gerais, Rio de Janeiro e Espírito Santo.</desc>
+  <g stroke="#fffdf5" stroke-width="5" stroke-linejoin="round">
+    <path id="sao-paulo" fill="#d6d9d3" d="M88 112 L101 144 L126 154 L142 181 L170 185 L196 207 L222 188 L254 199 L279 203 L304 221 L334 230 L350 211 L374 213 L359 245 L335 271 L302 288 L262 286 L232 318 L193 338 L151 330 L121 313 L99 284 L82 253 L88 224 L65 207 L74 177 L67 148 Z"/>
+    <path id="minas-gerais" fill="#d6d9d3" d="M105 58 C135 42 180 45 211 55 L256 42 L302 59 L328 82 L315 112 L292 137 L305 160 L278 180 L254 199 L222 188 L196 207 L170 185 L142 181 L126 154 L101 144 L88 112 L92 82 Z"/>
+    <path id="rio-de-janeiro" fill="#d6d9d3" d="M305 160 L331 177 L349 158 L366 172 L389 193 L374 213 L350 211 L334 230 L304 221 L279 203 L254 199 L278 180 Z"/>
+    <path id="espirito-santo" fill="#d6d9d3" d="M302 59 L336 70 L357 95 L365 127 L349 158 L331 177 L305 160 L292 137 L315 112 L328 82 Z"/>
+  </g>
+  <g fill="#526054" font-family="Arial, sans-serif" font-size="15" font-weight="700" text-anchor="middle">
+    <text x="175" y="265">SP</text>
+    <text x="207" y="124">MG</text>
+    <text x="335" y="197">RJ</text>
+    <text x="337" y="111">ES</text>
+  </g>
+</svg>
