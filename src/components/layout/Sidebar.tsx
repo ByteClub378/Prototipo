@@ -1,10 +1,11 @@
 import { NavLink } from "react-router-dom";
+import betoExplorer from "../../assets/beto-explorer.webp";
 import PlayerProfile from "../player/PlayerProfile";
 import NewMissionButton from "../ui/NewMissionButton";
 import "./Sidebar.css";
 
 const NAV_ITEMS = [
-  { to: "/mapa", label: "Mapa", icon: "🗺️" },   
+  { to: "/mapa", label: "Mapa", icon: "🗺️" },
   { to: "/medalhas", label: "Medalhas", icon: "🏅" },
   { to: "/dicionario", label: "Dicionário", icon: "📖" },
   { to: "/aventuras", label: "Aventuras", icon: "🧭" },
@@ -15,11 +16,11 @@ function Sidebar() {
   return (
     <aside className="sidebar">
       <div className="sidebar__logo">
-        <span className="sidebar__logo-icon">🧭</span>
-        <span className="sidebar__logo-text">Aventura das Regiões</span>
+        <span className="sidebar__logo-icon" aria-hidden="true">🧭</span>
+        <span className="sidebar__logo-text">Aventura <strong>das Regiões</strong></span>
       </div>
 
-      <PlayerProfile name="Beto, o Explorador" level="Curumim" avatar="🧑‍🚀" />
+      <PlayerProfile name="Beto, o Explorador" level="Curumim" avatar={betoExplorer} />
 
       <nav className="sidebar__nav">
         {NAV_ITEMS.map((item) => (

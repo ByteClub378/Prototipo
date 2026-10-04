@@ -9,7 +9,9 @@ interface PlayerProfileProps {
 function PlayerProfile({ name, level, avatar }: PlayerProfileProps) {
   return (
     <div className="player-profile">
-      <div className="player-profile__avatar">{avatar}</div>
+      <div className="player-profile__avatar">
+        <img src={avatar} alt="" />
+      </div>
       <div className="player-profile__info">
         <span className="player-profile__name">{name}</span>
         <span className="player-profile__level">Nível: {level}</span>

@@ -1,4 +1,4 @@
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, useNavigate } from "react-router-dom";
 import AppLayout from "./components/layout/AppLayout";
 import StartScreen from "./pages/Start/StartScreen";
 import Dashboard from "./pages/Dashboard/Dashboard";
@@ -14,9 +14,19 @@ import CreditsScreen from "./pages/Credits/CreditsScreen";
 
 
 function App() {
+  const navigate = useNavigate();
+
   return (
     <Routes>
-      <Route path="/" element={<StartScreen />} />
+      <Route
+        path="/"
+        element={
+          <StartScreen
+            onPlay={() => navigate("/mapa")}
+            onCredits={() => navigate("/creditos")}
+          />
+        }
+      />
 
       <Route element={<AppLayout />}>
         <Route path="/mapa" element={<Dashboard />} />
