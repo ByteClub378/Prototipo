@@ -5,7 +5,8 @@ const schema = z.object({
     NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
     PORT: z.coerce.number().int().min(1).max(65535).default(3000),
     TRUST_PROXY: booleanString.default(false),
-    FRONTEND_ORIGIN: z.string().url().default("http://localhost:5173"),
+    FRONTEND_ORIGIN: z.string().url().optional(),
+    RENDER_EXTERNAL_URL: z.string().url().optional(),
     COOKIE_NAME: z.string().min(3).default("aventura_session"),
     SESSION_TTL_HOURS: z.coerce.number().int().min(1).max(720).default(168),
     SESSION_SECRET: z.string().min(32).default("development-only-change-this-secret"),
@@ -15,7 +16,11 @@ const schema = z.object({
     FIREBASE_PRIVATE_KEY: z.string().min(1).optional(),
     FIRESTORE_EMULATOR_HOST: z.string().min(1).optional(),
 });
-export const env = schema.parse(process.env);
+const parsedEnv = schema.parse(process.env);
+export const env = {
+    ...parsedEnv,
+    FRONTEND_ORIGIN: parsedEnv.FRONTEND_ORIGIN ?? parsedEnv.RENDER_EXTERNAL_URL ?? "http://localhost:5173",
+};
 const secureDeployment = env.NODE_ENV === "production" || new URL(env.FRONTEND_ORIGIN).protocol === "https:";
 if (secureDeployment && env.SESSION_SECRET === "development-only-change-this-secret") {
     throw new Error("SESSION_SECRET deve ser configurado em produção ou implantação HTTPS.");

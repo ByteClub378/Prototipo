@@ -12,6 +12,19 @@ export type StartScreenProps = {
   backgroundUrl?: string;
   institutionLogoUrl?: string;
 };
+import { useNavigate } from "react-router-dom";
+import { useProgress } from "../../context/ProgressContext";
+import { useSession } from "../../context/SessionContext";
+import { ApiError } from "../../utils/api";
+import { useState } from "react";
+import "./StartScreen.css";
+
+function StartScreen() {
+  const navigate = useNavigate();
+  const { progress, resetProgress } = useProgress();
+  const { status, retryBootstrap } = useSession();
+  const [isResetting, setIsResetting] = useState(false);
+  const [resetError, setResetError] = useState<string | null>(null);
 
 const regions = ['Norte', 'Nordeste', 'Centro-Oeste', 'Sudeste', 'Sul'];
 
@@ -22,6 +35,27 @@ function Arrow() {
     </svg>
   );
 }
+  async function handleNewGame() {
+    if (isResetting || status === "loading") return;
+    setIsResetting(true);
+    setResetError(null);
+    try {
+      if (status !== "ready" && !(await retryBootstrap())) {
+        throw new Error("Não foi possível conectar com o servidor.");
+      }
+      await resetProgress();
+      navigate("/mapa");
+    } catch (error) {
+      console.error("[start] Falha ao iniciar novo jogo:", error);
+      setResetError(
+        error instanceof ApiError
+          ? error.message
+          : "Não foi possível iniciar. Verifique se a API está ligada e tente novamente."
+      );
+    } finally {
+      setIsResetting(false);
+    }
+  }
 
 export default function StartScreen({
   onPlay = () => {},
@@ -92,6 +126,16 @@ export default function StartScreen({
                 Sua jornada começa com “Jogar”.
               </p>
             )}
+        <div className="start-screen__menu">
+          <button
+            className="start-screen__menu-item start-screen__menu-item--primary"
+            onClick={handleNewGame}
+            disabled={isResetting || status === "loading"}
+          >
+            {isResetting || status === "loading" ? "Conectando..." : "🎮 Novo Jogo"}
+          </button>
+
+          {resetError && <p role="alert">{resetError}</p>}
 
             <button
               type="button"
@@ -127,3 +171,6 @@ export default function StartScreen({
     </main>
   );
 }
+}
+
+export default StartScreen;

@@ -1,14 +1,10 @@
 <div align="center">
 
-<h1 style="color:#009C3B;">🇧🇷 Brazil Adventure</h1>
+# 🇧🇷 Brazil Adventure
 
-<p>
 Uma plataforma web para explorar destinos turísticos, cultura e aventuras pelo Brasil.
-</p>
 
-<a href="https://braziladventure.onrender.com" target="_blank">
-    <img src="https://img.shields.io/badge/Acessar-009C3B?style=for-the-badge&logo=google-chrome&logoColor=white
-</a>
+[![Acessar](https://img.shields.io/badge/Acessar-009C3B?style=for-the-badge&logo=google-chrome&logoColor=white)](https://braziladventure.onrender.com)
 
 </div>
 
@@ -16,32 +12,24 @@ Uma plataforma web para explorar destinos turísticos, cultura e aventuras pelo 
 
 ## 📖 Sobre o Projeto
 
-<div style="background:#f5f5f5;padding:15px;border-radius:10px;">
-
 O **Brazil Adventure** foi desenvolvido para proporcionar uma experiência interativa de descoberta das belezas naturais, culturais e turísticas do Brasil.
 
 ### Objetivos
 
-- Melhorar a experiência do usuário.
-- Oferecer navegação intuitiva.
-- Divulgar atrações turísticas brasileiras.
-- Disponibilizar uma interface moderna e responsiva.
-
-</div>
+- Melhorar a experiência do usuário
+- Oferecer navegação intuitiva
+- Divulgar atrações turísticas brasileiras
+- Disponibilizar uma interface moderna e responsiva
 
 ---
 
 ## 🚀 Funcionalidades
 
-✅ Visualização de destinos turísticos
-
-✅ Interface responsiva
-
-✅ Navegação intuitiva
-
-✅ Conteúdo sobre atrações brasileiras
-
-✅ Experiência otimizada para dispositivos móveis
+- ✅ Visualização de destinos turísticos
+- ✅ Interface responsiva
+- ✅ Navegação intuitiva
+- ✅ Conteúdo sobre atrações brasileiras
+- ✅ Experiência otimizada para dispositivos móveis
 
 ---
 
@@ -49,26 +37,20 @@ O **Brazil Adventure** foi desenvolvido para proporcionar uma experiência inter
 
 <div align="center">
 
-<img src="https://skillicons.dev/icons?,js,react,nodejs
+![JavaScript](https://skillicons.dev/icons?i=js,react,nodejs)
 
 </div>
 
-### Stack
+**Stack:**
 
 - HTML5
 - CSS3
 - JavaScript
 - React
 - Node.js
-- Render
+- Render (deploy)
 
 ---
-
-## 📷 Demonstração
-
-🔗 **Acesse a aplicação**
-
-https://braziladventure.onrender.com
 
 ---
 
@@ -89,43 +71,52 @@ brazil-adventure/
 
 ## ⚙️ Como Executar Localmente
 
-### 1. Clonar o projeto
-
+**1. Clonar o projeto**
 ```bash
 git clone https://github.com/seu-usuario/Prototipo.git
 ```
 
-### 2. Entrar na pasta
-
+**2. Entrar na pasta**
 ```bash
 cd brazil-adventure
 ```
 
-### 3. Instalar dependências
-
+**3. Instalar dependências**
 ```bash
 npm install
 ```
 
-### 4. Executar
-
+**4. Executar**
 ```bash
 npm run dev
 ```
-
 ou
-
 ```bash
 npm start
 ```
 
 ---
 
-## 🌎 Deploy
+## 🌎 Deploy no Render
 
-O sistema encontra-se publicado no Render:
+O projeto usa um único **Web Service**: o Express serve tanto a API quanto o
+build do React no mesmo domínio.
 
-🔗 https://braziladventure.onrender.com
+No Render, crie um Web Service com `npm install && npm run build` como Build
+Command, `npm start` como Start Command e `/health/ready` como Health Check.
+Configure também estas variáveis:
+
+- `NODE_ENV=production`
+- `TRUST_PROXY=true`
+- `SESSION_SECRET` com uma chave aleatória de pelo menos 32 caracteres
+- `FIREBASE_PROJECT_ID`
+- `FIREBASE_CLIENT_EMAIL`
+- `FIREBASE_PRIVATE_KEY`
+
+Não configure `VITE_API_URL`: no deploy unificado, o frontend acessa `/api/v1`
+no próprio domínio.
+
+🔗 [braziladventure.onrender.com](https://braziladventure.onrender.com)
 
 ---
 
@@ -136,8 +127,8 @@ Este projeto foi desenvolvido para aprimorar conhecimentos em:
 - Desenvolvimento Front-End
 - React
 - Responsividade
-- Estruturação de Componentes
-- Deploy de Aplicações Web
+- Estruturação de componentes
+- Deploy de aplicações web
 
 ---
 
@@ -149,7 +140,7 @@ Projeto desenvolvido para fins acadêmicos e educacionais.
 
 <div align="center">
 
-### 🇧🇷 Brazil Adventure
+**🇧🇷 Brazil Adventure**
 
 Descubra as maravilhas do Brasil 🌎
 

@@ -38,7 +38,7 @@ interface ProgressContextValue {
   bonusUnlocked: boolean;
   completeRegion: (id: RegionId) => void;
   getStatus: (id: RegionId) => RegionStatus;
-  resetProgress: () => void;
+  resetProgress: () => Promise<void>;
 }
 
 const ProgressContext = createContext<ProgressContextValue | undefined>(
@@ -86,13 +86,15 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
     await apiDelete("/me/progress", { "X-Confirm-Reset": "RESET" });
     localStorage.removeItem(STORAGE_KEY);
     const state = await refreshState();
-    if (state) {
-      const next = buildInitialProgress();
-      state.progress.regions.forEach((region) => {
-        next[region.regionId] = region.status;
-      });
-      setProgress(next);
+    if (!state) {
+      throw new Error("Não foi possível sincronizar o progresso reiniciado.");
     }
+
+    const next = buildInitialProgress();
+    state.progress.regions.forEach((region) => {
+      next[region.regionId] = region.status;
+    });
+    setProgress(next);
   }
 
   const bonusUnlocked = sortedRegions.every(
