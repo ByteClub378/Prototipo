@@ -9,7 +9,10 @@ export default defineConfig({
     // O cliente usa URLs relativas por padrão, então elas precisam ser
     // encaminhadas para o backend em vez de cair no servidor do Vite.
     proxy: {
-      '/api': 'http://localhost:3000',
+      '/api': {
+        target: 'http://localhost:3000',
+        changeOrigin: true
+      },
       '/health': 'http://localhost:3000',
     },
   },
