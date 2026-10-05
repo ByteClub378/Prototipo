@@ -38,7 +38,7 @@ function StartScreen({
   const [logoFailed, setLogoFailed] = useState(false);
 
     const navigate = useNavigate();
-    const { progress, resetProgress } = useProgress();
+    const { resetProgress } = useProgress();
     const { status, retryBootstrap } = useSession();
     const [isResetting, setIsResetting] = useState(false);
     const [resetError, setResetError] = useState<string | null>(null);
