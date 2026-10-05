@@ -7,7 +7,8 @@
   flex: 1;
   min-width: 0;
   width: 100%;
-  padding: var(--space-xl);
+  padding: clamp(0.65rem, 1.5vw, 1.5rem);
+  background: linear-gradient(180deg, #e5f7f5 0%, #eef8e9 100%);
 }
 
 @media (max-width: 900px) {

@@ -22,10 +22,10 @@
   --color-error-bg: #ffebee;
 
   --color-white: #ffffff;
-  --color-bg: #f5f7f5;
-  --color-text: #263238;
-  --color-text-light: #607d8b;
-  --color-border: #e0e0e0;
+  --color-bg: #eaf5e8;
+  --color-text: #3b3a2f;
+  --color-text-light: #657865;
+  --color-border: #d9e6d4;
 
   /* Tipografia */
   --font-family: "Nunito", system-ui, -apple-system, sans-serif;
@@ -43,11 +43,11 @@
   --space-xl: 2rem;
 
   /* Bordas e sombras */
-  --radius-sm: 8px;
-  --radius-md: 16px;
-  --radius-lg: 24px;
-  --shadow-card: 0 2px 12px rgba(0, 0, 0, 0.06);
-  --shadow-card-hover: 0 4px 20px rgba(0, 0, 0, 0.1);
+  --radius-sm: 12px;
+  --radius-md: 18px;
+  --radius-lg: 26px;
+  --shadow-card: 0 4px 14px rgba(67, 83, 52, 0.12);
+  --shadow-card-hover: 0 7px 20px rgba(67, 83, 52, 0.17);
 
   --sidebar-width: 260px;
 }

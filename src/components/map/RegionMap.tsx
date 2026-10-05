@@ -11,13 +11,14 @@ const STATUS_BADGE: Record<RegionStatus, string> = {
   completed: "🏅",
 };
 
-const LOCKED_COLOR = "#B0BEC5";
+const LOCKED_COLOR = "#d7e3d0";
 
 // Usar um dicionário de rotas facilita a adição de novas regiões no futuro
 const REGION_ROUTES: Partial<Record<string, string>> = {
   norte: "/missao/norte",
   nordeste: "/missao/nordeste",
   "centro-oeste": "/missao/centro-oeste",
+  sudeste: "/missao/sudeste",
 };
 
 function RegionMap() {
@@ -69,7 +70,7 @@ function RegionMap() {
                 }
               }}
             >
-              <path d={REGION_PATHS[region.id]} fill={fill} stroke="#ffffff" strokeWidth={3} />
+              <path d={REGION_PATHS[region.id]} fill={fill} stroke="#ffffff" strokeWidth={5} />
               <text
                 x={labelPos.x}
                 y={labelPos.y}
@@ -98,6 +99,9 @@ function RegionMap() {
       >
         <span>{bonusUnlocked ? "🏆" : "🔒"}</span>
         <span>Fase Bônus</span>
+        <span className="region-map__bonus-copy">
+          {bonusUnlocked ? "Tesouro encontrado!" : "Complete as regiões para abrir o tesouro"}
+        </span>
       </div>
     </div>
   );

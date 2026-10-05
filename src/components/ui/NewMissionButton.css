@@ -1,24 +1,23 @@
 .new-mission-button {
-  width: 100%;
   display: flex;
+  width: 100%;
   align-items: center;
   justify-content: center;
   gap: var(--space-xs);
-  background-color: var(--color-yellow);
-  color: #5a3d00;
-  font-weight: 800;
-  font-size: var(--font-size-base);
   padding: var(--space-md);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-card);
+  border: 2px solid #fff6d2;
+  border-radius: 18px;
+  background: linear-gradient(180deg, #ffda68 0%, #ffc247 100%);
+  box-shadow: 0 4px 0 #d39327;
+  color: #583a18;
+  font-size: var(--font-size-base);
+  font-weight: 900;
   transition: transform 0.12s ease, box-shadow 0.12s ease;
 }
 
 .new-mission-button:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-card-hover);
+  transform: translateY(-2px) rotate(-1deg);
+  box-shadow: 0 6px 0 #d39327;
 }
 
-.new-mission-button:active {
-  transform: translateY(0);
-}
+.new-mission-button:active { transform: translateY(0); }
