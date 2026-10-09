@@ -9,6 +9,7 @@ import { SessionRepository } from "../repositories/session.repository.js";
 import { completeAttemptSchema, GameService, startAttemptSchema } from "../services/game.service.js";
 import { SessionService } from "../services/session.service.js";
 import { ApiError } from "../utils/api-error.js";
+import adminRouter from "./admin.js";
 const router = Router();
 const sessions = new SessionService(new SessionRepository(db));
 const games = new GameService(new GameRepository());
@@ -19,8 +20,9 @@ const setSessionCookie = (response, token, expiresAt) => {
 };
 const sessionLimiter = rateLimit({ windowMs: 60_000, limit: 20, standardHeaders: "draft-8", legacyHeaders: false });
 const writeLimiter = rateLimit({ windowMs: 60_000, limit: 120, standardHeaders: "draft-8", legacyHeaders: false });
+router.use("/admin/stats", adminRouter);
 router.post("/session/bootstrap", sessionLimiter, async (request, response) => {
-    const result = await sessions.bootstrap(request.cookies?.[env.COOKIE_NAME]);
+    const result = await sessions.bootstrap(request.cookies?.[env.COOKIE_NAME], request.body?.forceNew === true);
     setSessionCookie(response, result.token, result.expiresAt);
     response.status(result.created ? 201 : 200).json({
         data: { playerId: result.playerId, expiresAt: result.expiresAt.toISOString(), created: result.created },

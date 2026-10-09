@@ -50,8 +50,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     try {
       return await apiGet<GameStateResponse>("/me/state");
     } catch (error) {
-      if (!(error instanceof ApiError) || error.status !== 401) throw error;
-      await apiPost("/session/refresh");
+      if (!(error instanceof ApiError) || error.code !== "SESSION_INVALID") throw error;
+      await apiPost<BootstrapResponse>("/session/bootstrap", { forceNew: true });
       return apiGet<GameStateResponse>("/me/state");
     }
   }, []);

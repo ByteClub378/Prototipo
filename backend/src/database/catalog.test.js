@@ -44,11 +44,30 @@ describe("catálogo do jogo", () => {
     expect(progress.levels[levelId("nordeste", 1)].status).toBe("locked");
   });
 
-  it("possui medalhas para as três regiões implementadas", () => {
+  it("possui medalhas para as regiões integradas", () => {
     expect(MEDALS.map((medal) => medal.regionId)).toEqual([
       "norte",
       "nordeste",
       "centro-oeste",
+      "sudeste",
     ]);
+  });
+
+  it("cadastra o nível do Sudeste com pontuação máxima de 1000", () => {
+    expect(LEVELS.find((level) => level.regionId === "sudeste")).toEqual({
+      regionId: "sudeste",
+      levelNumber: 1,
+      name: "Monte o mapa do Sudeste",
+      questionCount: 8,
+      maxScore: 1000,
+      minScore: 600,
+    });
+    expect(MEDALS.find((medal) => medal.id === "sudeste-completo")).toEqual({
+      id: "sudeste-completo",
+      name: "Medalha do Sudeste",
+      description: "Responda aos desafios e encaixe os quatro estados do Sudeste.",
+      regionId: "sudeste",
+      criterionType: "region_complete",
+    });
   });
 });

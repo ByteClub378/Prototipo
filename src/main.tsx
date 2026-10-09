@@ -6,6 +6,7 @@ import App from "./App.tsx";
 import { ProgressProvider } from "./context/ProgressContext";
 import { SessionProvider } from "./context/SessionContext";
 import { ScoreProvider } from "./context/ScoreContext";
+import GameFeedbackProvider from "./components/game/GameFeedbackProvider";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
@@ -13,7 +14,9 @@ createRoot(document.getElementById("root")!).render(
       <SessionProvider>
         <ScoreProvider>
           <ProgressProvider>
-            <App />
+            <GameFeedbackProvider>
+              <App />
+            </GameFeedbackProvider>
           </ProgressProvider>
         </ScoreProvider>
       </SessionProvider>

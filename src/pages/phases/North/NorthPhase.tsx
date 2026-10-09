@@ -14,6 +14,7 @@ import { POINTS_PER_CORRECT_ANSWER, POINTS_PER_INCORRECT_ANSWER } from "../../..
 import { useScore } from "../../../context/ScoreContext";
 import { useAttempt } from "../../../hooks/useAttempt";
 import { useSession } from "../../../context/SessionContext";
+import { useGameFeedback } from "../../../hooks/useGameFeedback";
 import { shuffle } from "../../../utils/random";
 import ScoreDisplay from "../../../components/game/ScoreDisplay";
 import "./NorthPhase.css";
@@ -34,6 +35,12 @@ interface Zone {
 const MINIMUM_ACCURACY = 0.6;
 
 function NorthPhase() {
+  const {
+    feedbackRef,
+    showSuccess,
+    showError,
+    clearFeedback,
+  } = useGameFeedback();
   const navigate = useNavigate();
   const { addPoints, resetScore } = useScore();
   const { startAttempt, completeAttempt } = useAttempt("norte");
@@ -65,6 +72,7 @@ function NorthPhase() {
   const [isResolving, setIsResolving] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [saveFailed, setSaveFailed] = useState(false);
 
   const level = levels[levelIndex];
   const isLastLevel = levelIndex === levels.length - 1;
@@ -88,12 +96,14 @@ function NorthPhase() {
   }, []);
 
   function startLevel(idx: number, showLevelBanner = true) {
+    clearFeedback();
     const nextLevel = levels[idx];
     setShowBanner(showLevelBanner);
     setLevelComplete(false);
     setCurrentItemPos(0);
     setFeedback(null);
     setIsResolving(false);
+    setSaveFailed(false);
     setIsItemSelected(false);
     setTimerNonce((n) => n + 1);
     setItemOrder(nextLevel.itemIds);
@@ -113,6 +123,7 @@ function NorthPhase() {
     isSubmittingRef.current = true;
     setIsSubmitting(true);
     setIsResolving(true);
+    setSaveFailed(false);
     logEvent({ type: "level_complete", phase: "north", level: level.id });
     const missionIncorrectAnswers = missionAnsweredRef.current - missionCorrectRef.current;
     const result = await completeAttempt({
@@ -134,12 +145,14 @@ function NorthPhase() {
         message: "Confira sua conexão e tente novamente.",
       });
       setIsResolving(false);
+      setSaveFailed(true);
       isSubmittingRef.current = false;
       setIsSubmitting(false);
       return;
     }
 
     await refreshState();
+    setSaveFailed(false);
     if (isLastLevel) {
       const answered = missionAnsweredRef.current;
       const correct = missionCorrectRef.current;
@@ -202,6 +215,7 @@ function NorthPhase() {
   }
 
   function restartMission() {
+    clearFeedback();
     const nextLevels = createNorthLevels();
     resetScore();
     setLevels(nextLevels);
@@ -215,6 +229,7 @@ function NorthPhase() {
     setCurrentItemPos(0);
     setMissionFailed(false);
     setMissionComplete(false);
+    setSaveFailed(false);
     setFinalAccuracy(0);
     setFeedback(null);
     setIsResolving(false);
@@ -275,59 +290,107 @@ function NorthPhase() {
 
   function handleSequentialDrop(zoneId: string) {
     if (!currentItem || isResolving || isSubmitting) return;
+
     const correctZoneId = getCorrectZoneId(currentItem);
+
     missionAnsweredRef.current += 1;
+    setIsResolving(true);
 
     if (zoneId === correctZoneId) {
       missionCorrectRef.current += 1;
+
       playSuccessSound();
       addPoints(POINTS_PER_CORRECT_ANSWER);
+
       levelScoreRef.current += POINTS_PER_CORRECT_ANSWER;
       levelCorrectRef.current += 1;
-      logEvent({ type: "item_correct", phase: "north", level: level.id, item: currentItem.id });
-      setFeedback({ type: "success", title: "Muito bem!", message: currentItem.fact });
-      setIsResolving(true);
-      scheduleAdvance(advanceSequentialItem, 1100);
-    } else {
-      playErrorSound();
-      addPoints(POINTS_PER_INCORRECT_ANSWER);
-      levelIncorrectRef.current += 1;
-      levelScoreRef.current = Math.max(0, levelScoreRef.current + POINTS_PER_INCORRECT_ANSWER);
-      logEvent({ type: "item_incorrect", phase: "north", level: level.id, item: currentItem.id });
-      const correctZone = zones.find((z) => z.id === correctZoneId);
-      setFeedback({
-        type: "error",
-        title: "Quase!",
-        message: `O lugar certo era "${correctZone?.name ?? ""}". ${currentItem.fact}`,
+
+      logEvent({
+        type: "item_correct",
+        phase: "north",
+        level: level.id,
+        item: currentItem.id,
       });
-      setIsResolving(true);
-      scheduleAdvance(advanceSequentialItem, 1000);
+
+      setFeedback({ type: "success", title: "Muito bem!", message: currentItem.fact });
+
+      showSuccess(currentItem.fact, {
+        title: "Meus parabéns!",
+      });
+
+      scheduleAdvance(advanceSequentialItem, 3500);
+      return;
     }
+
+    playErrorSound();
+    addPoints(POINTS_PER_INCORRECT_ANSWER);
+
+    levelIncorrectRef.current += 1;
+
+    levelScoreRef.current = Math.max(
+      0,
+      levelScoreRef.current + POINTS_PER_INCORRECT_ANSWER,
+    );
+
+    logEvent({
+      type: "item_incorrect",
+      phase: "north",
+      level: level.id,
+      item: currentItem.id,
+    });
+
+    const correctZone = zones.find(
+      (zone) => zone.id === correctZoneId,
+    );
+
+    const message =
+      `O lugar certo era "${correctZone?.name ?? ""}". ` +
+      currentItem.fact;
+
+    setFeedback({
+      type: "error",
+      title: "Quase!",
+      message,
+    });
+
+    showError(message, {
+      title: "Resposta incorreta!",
+    });
+
+    scheduleAdvance(advanceSequentialItem, 4500);
   }
 
   function handleItemTimeout() {
     if (!currentItem || isResolving || isSubmitting) return;
 
     missionAnsweredRef.current += 1;
+    levelIncorrectRef.current += 1;
 
     playTimeoutSound();
-    levelIncorrectRef.current += 1;
-    const duration = level.durationSeconds;
+
     logEvent({
       type: "time_expired",
       phase: "north",
       level: level.id,
       item: currentItem.id,
-      responseTime: duration,
+      responseTime: level.durationSeconds,
     });
+
+    const message =
+      `Vamos aprender e seguir em frente: ${currentItem.fact}`;
+
     setFeedback({
       type: "error",
       title: "⏰ Tempo esgotado!",
-      message: `Vamos aprender e seguir em frente: ${currentItem.fact}`,
+      message,
+    });
+
+    showError(message, {
+      title: "Tempo esgotado!",
     });
 
     setIsResolving(true);
-    scheduleAdvance(advanceSequentialItem, 1400);
+    scheduleAdvance(advanceSequentialItem, 4500);
   }
 
   function handleDragOver(event: DragEvent<HTMLElement>) {
@@ -343,7 +406,7 @@ function NorthPhase() {
   }
 
   const timerDuration = level.durationSeconds;
-  const isTimerActive = !showBanner && !levelComplete && !missionComplete && !isResolving && !isSubmitting;
+  const isTimerActive = !showBanner && !levelComplete && !missionComplete && !isResolving && !isSubmitting && !saveFailed;
 
   const progressCurrent = currentItemPos + 1;
   const progressTotal = itemOrder.length;
@@ -359,7 +422,7 @@ function NorthPhase() {
       : level.instruction;
 
   return (
-    <div className="north-phase">
+    <div ref={feedbackRef} className="north-phase">
       <MissionHeader
         title={`Rodada ${level.id} de ${levels.length} — ${level.title}`}
         instruction={missionInstruction}
@@ -390,6 +453,17 @@ function NorthPhase() {
             Voltar ao mapa
           </button>
         </GameCard>
+      ) : saveFailed ? (
+        <GameCard className="north-phase__failed">
+          <h2>Não foi possível salvar esta rodada</h2>
+          <p>Seu progresso está pausado. Verifique sua conexão e tente salvar novamente.</p>
+          <button className="north-phase__retry-button" onClick={() => void finishLevel()}>
+            Tentar salvar novamente
+          </button>
+          <button className="north-phase__map-button" onClick={() => navigate("/mapa")}>
+            Voltar ao mapa
+          </button>
+        </GameCard>
       ) : showBanner ? (
         <LevelBanner
           level={level}
@@ -397,6 +471,11 @@ function NorthPhase() {
           onStart={handleStartLevel}
           buttonLabel={status === "loading" ? "Conectando..." : status === "error" ? "Tentar conectar novamente" : "Começar"}
           disabled={status === "loading" || isStarting}
+          narration={
+            level.mechanic === "inverted"
+              ? "Olá, explorador! Observe o ambiente indicado e o cartão. Escolha Pertence ou Não pertence. Cada rodada tem um tempo para responder. Ouça as instruções antes de apertar Começar!"
+              : "Olá, explorador! No Norte, observe o animal ou a planta do cartão. No computador, arraste o cartão para o ambiente correto. No celular, toque no ambiente que você escolheu. Ouça as instruções antes de apertar Começar!"
+          }
         />
       ) : levelComplete ? (
         <GameCard className="north-phase__complete">

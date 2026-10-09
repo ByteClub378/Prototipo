@@ -6,8 +6,8 @@ export class SessionService {
     constructor(repository) {
         this.repository = repository;
     }
-    async bootstrap(existingToken) {
-        if (existingToken) {
+    async bootstrap(existingToken, forceNew = false) {
+        if (existingToken && !forceNew) {
             const current = await this.authenticate(existingToken);
             if (current) {
                 return { token: existingToken, playerId: current.publicId, expiresAt: current.expiresAt, created: false };
