@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import InstructionAudio from "../../../components/game/InstructionAudio";
-import { useProgress } from "../../../context/ProgressContext";
 import { useScore } from "../../../context/ScoreContext";
+import { useSession } from "../../../context/SessionContext";
+import { POINTS_PER_CORRECT_ANSWER, POINTS_PER_INCORRECT_ANSWER } from "../../../data/scoring";
+import { useAttempt } from "../../../hooks/useAttempt";
 import { useGameFeedback } from "../../../hooks/useGameFeedback";
 import {
   createQuestionSelection,
@@ -23,18 +25,28 @@ function SudestePhase() {
   const { feedbackRef, showSuccess, showError } = useGameFeedback<HTMLElement>();
   const answerLockedRef = useRef(false);
   const answerTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const completionInFlightRef = useRef(false);
+  const levelScoreRef = useRef(0);
+  const correctAnswersRef = useRef(0);
+  const incorrectAnswersRef = useRef(0);
   const [isAnswering, setIsAnswering] = useState(false);
   const navigate = useNavigate();
-  const { completeRegion } = useProgress();
   const { addPoints } = useScore();
+  const { status: sessionStatus, refreshState, retryBootstrap } = useSession();
+  const { startAttempt, completeAttempt } = useAttempt("sudeste");
   const [questionSets] = useState(createQuestionSelection);
+  const [attemptStarted, setAttemptStarted] = useState(false);
+  const [isStarting, setIsStarting] = useState(false);
+  const [completionStatus, setCompletionStatus] = useState<
+    "idle" | "saving" | "failed" | "sync-failed" | "passed" | "not-passed"
+  >("idle");
+  const [completionError, setCompletionError] = useState<string | null>(null);
   const [unlockedIds, setUnlockedIds] = useState<SoutheastStateId[]>([]);
   const [placedIds, setPlacedIds] = useState<SoutheastStateId[]>([]);
   const [selectedId, setSelectedId] = useState<SoutheastStateId | null>(null);
   const [activeStateId, setActiveStateId] = useState<SoutheastStateId | null>(null);
   const [questionIndex, setQuestionIndex] = useState(0);
   const [feedback, setFeedback] = useState<string | null>(null);
-  const completionReported = useRef(false);
 
   useEffect(() => () => {
     if (answerTimeoutRef.current) clearTimeout(answerTimeoutRef.current);
@@ -57,17 +69,78 @@ function SudestePhase() {
   const activeQuestion = activeStateId ? questionSets[activeStateId][questionIndex] : null;
   const isComplete = placedIds.length === SOUTHEAST_STATES.length;
 
+  async function startMission() {
+    if (isStarting) return;
+    setIsStarting(true);
+    setFeedback(null);
+
+    if (sessionStatus === "loading") {
+      setFeedback("Aguarde enquanto conectamos sua sessão.");
+      setIsStarting(false);
+      return;
+    }
+    if (sessionStatus === "error" && !(await retryBootstrap())) {
+      setFeedback("Não foi possível conectar. Verifique sua internet e tente novamente.");
+      setIsStarting(false);
+      return;
+    }
+
+    const started = await startAttempt(1);
+    if (!started) {
+      setFeedback("Não foi possível iniciar a fase. Verifique sua conexão e tente novamente.");
+      setIsStarting(false);
+      return;
+    }
+
+    levelScoreRef.current = 0;
+    correctAnswersRef.current = 0;
+    incorrectAnswersRef.current = 0;
+    setUnlockedIds([]);
+    setPlacedIds([]);
+    setSelectedId(null);
+    setActiveStateId(null);
+    setQuestionIndex(0);
+    setCompletionError(null);
+    setCompletionStatus("idle");
+    setAttemptStarted(true);
+    setIsStarting(false);
+  }
+
   useEffect(() => {
-    if (!isComplete || completionReported.current) return;
-    completionReported.current = true;
-    completeRegion("sudeste");
-    addPoints(200);
-  }, [isComplete, completeRegion, addPoints]);
+    if (!attemptStarted || !isComplete || completionStatus !== "idle" || completionInFlightRef.current) return;
+    completionInFlightRef.current = true;
+    setCompletionStatus("saving");
+    void (async () => {
+      const result = await completeAttempt({
+        score: levelScoreRef.current + 200,
+        correctAnswers: correctAnswersRef.current,
+        incorrectAnswers: incorrectAnswersRef.current,
+      });
+      if (!result) {
+        setCompletionError("A conexão falhou. Seus encaixes foram mantidos; tente salvar novamente.");
+        setCompletionStatus("failed");
+        return;
+      }
+
+      if (result.passed) {
+        addPoints(200);
+      }
+      const refreshedState = await refreshState();
+      if (result.passed && !refreshedState) {
+        setCompletionError("Sua conclusão foi confirmada, mas não foi possível atualizar o mapa. Tente sincronizar novamente.");
+        setCompletionStatus("sync-failed");
+      } else {
+        setCompletionStatus(result.passed ? "passed" : "not-passed");
+      }
+    })().finally(() => {
+      completionInFlightRef.current = false;
+    });
+  }, [addPoints, attemptStarted, completeAttempt, completionStatus, isComplete, refreshState]);
 
   const questionProgress = useMemo(() => `${placedIds.length} de 4 estados`, [placedIds.length]);
 
   function openChallenge(state: SoutheastState) {
-    if (answerLockedRef.current) return;
+    if (!attemptStarted || completionStatus !== "idle" || answerLockedRef.current) return;
     if (unlockedIds.includes(state.id) || placedIds.includes(state.id)) return;
     setActiveStateId(state.id);
     setQuestionIndex(0);
@@ -75,6 +148,7 @@ function SudestePhase() {
   }
 
   function placeState(stateId: SoutheastStateId, targetId: SoutheastStateId) {
+    if (!attemptStarted || completionStatus !== "idle") return;
     if (placedIds.includes(stateId)) return;
     if (!unlockedIds.includes(stateId)) {
       const state = SOUTHEAST_STATES.find((item) => item.id === stateId);
@@ -82,6 +156,9 @@ function SudestePhase() {
       return;
     }
     if (stateId !== targetId) {
+      incorrectAnswersRef.current += 1;
+      levelScoreRef.current = Math.max(0, levelScoreRef.current + POINTS_PER_INCORRECT_ANSWER);
+      addPoints(POINTS_PER_INCORRECT_ANSWER);
       showError("Essa peça pertence a outro espaço. Confira a sigla e tente novamente!", { title: "Vamos encontrar o lugar certo!" });
       setFeedback("Essa peça pertence a outro espaço. Confira a sigla e tente novamente!");
       return;
@@ -94,6 +171,7 @@ function SudestePhase() {
   }
 
   function selectPiece(state: SoutheastState) {
+    if (!attemptStarted || completionStatus !== "idle") return;
     if (placedIds.includes(state.id)) return;
     if (!unlockedIds.includes(state.id)) {
       openChallenge(state);
@@ -106,6 +184,7 @@ function SudestePhase() {
   }
 
   function handleMapStateClick(state: SoutheastState) {
+    if (!attemptStarted || completionStatus !== "idle") return;
     if (placedIds.includes(state.id)) return;
     if (selectedId) {
       placeState(selectedId, state.id);
@@ -119,10 +198,13 @@ function SudestePhase() {
   }
 
   function answerQuestion(optionIndex: number) {
-    if (!activeStateId || !activeQuestion || answerLockedRef.current) return;
+    if (!attemptStarted || completionStatus !== "idle" || !activeStateId || !activeQuestion || answerLockedRef.current) return;
     answerLockedRef.current = true;
     setIsAnswering(true);
     if (optionIndex !== activeQuestion.answerIndex) {
+      incorrectAnswersRef.current += 1;
+      levelScoreRef.current = Math.max(0, levelScoreRef.current + POINTS_PER_INCORRECT_ANSWER);
+      addPoints(POINTS_PER_INCORRECT_ANSWER);
       showError(activeQuestion.explanation, { title: "Quase! Leia a dica e tente de novo" });
       setFeedback(activeQuestion.explanation);
       scheduleAnswer(() => {}, 700);
@@ -130,7 +212,9 @@ function SudestePhase() {
     }
 
     showSuccess(activeQuestion.explanation, { title: "Resposta certa!" });
-    addPoints(100);
+    correctAnswersRef.current += 1;
+    levelScoreRef.current += POINTS_PER_CORRECT_ANSWER;
+    addPoints(POINTS_PER_CORRECT_ANSWER);
     if (questionIndex === 0) {
       setFeedback("Resposta certa! Agora responda à segunda pergunta para liberar a peça.");
       scheduleAnswer(() => {
@@ -149,6 +233,21 @@ function SudestePhase() {
       setActiveStateId(null);
       setQuestionIndex(0);
     }, 1500);
+  }
+
+  function retryCompletion() {
+    setCompletionError(null);
+    setCompletionStatus("idle");
+  }
+
+  async function retryStateSync() {
+    setCompletionError(null);
+    const refreshedState = await refreshState();
+    if (refreshedState) {
+      setCompletionStatus("passed");
+    } else {
+      setCompletionError("Ainda não foi possível atualizar o mapa. Verifique sua conexão e tente novamente.");
+    }
   }
 
   return (
@@ -171,7 +270,7 @@ function SudestePhase() {
         </div>
       </header>
 
-      {isComplete ? (
+      {completionStatus === "passed" ? (
         <section className="sudeste-phase__victory" aria-live="polite">
           <span className="sudeste-phase__medal" aria-hidden="true">🏅</span>
           <p className="sudeste-phase__eyebrow">MISSÃO CONCLUÍDA</p>
@@ -179,6 +278,58 @@ function SudestePhase() {
           <p>Você respondeu aos desafios e encaixou os quatro estados da região.</p>
           <button className="sudeste-phase__back-to-map" type="button" onClick={() => navigate("/mapa")}>
             Voltar ao mapa
+          </button>
+        </section>
+      ) : completionStatus === "saving" || (isComplete && completionStatus === "idle") ? (
+        <section className="sudeste-phase__victory" role="status" aria-live="polite">
+          <span className="sudeste-phase__medal" aria-hidden="true">⏳</span>
+          <h2>Salvando sua conquista...</h2>
+          <p>Aguarde a confirmação do servidor para registrar seu progresso.</p>
+        </section>
+      ) : completionStatus === "failed" ? (
+        <section className="sudeste-phase__victory" role="alert">
+          <h2>Não foi possível salvar a conclusão</h2>
+          <p>{completionError}</p>
+          <button className="sudeste-phase__back-to-map" type="button" onClick={retryCompletion}>
+            Tentar salvar novamente
+          </button>
+        </section>
+      ) : completionStatus === "sync-failed" ? (
+        <section className="sudeste-phase__victory" role="alert">
+          <span className="sudeste-phase__medal" aria-hidden="true">🏅</span>
+          <h2>Conquista confirmada; mapa ainda não sincronizado</h2>
+          <p>{completionError}</p>
+          <button className="sudeste-phase__back-to-map" type="button" onClick={() => void retryStateSync()}>
+            Sincronizar progresso
+          </button>
+        </section>
+      ) : completionStatus === "not-passed" ? (
+        <section className="sudeste-phase__victory" role="status">
+          <span className="sudeste-phase__medal" aria-hidden="true">🌱</span>
+          <h2>Quase lá!</h2>
+          <p>Esta tentativa não atingiu a pontuação necessária. Comece uma nova partida para tentar novamente.</p>
+          <button
+            className="sudeste-phase__back-to-map"
+            type="button"
+            onClick={() => void startMission()}
+            disabled={isStarting}
+          >
+            {isStarting ? "Iniciando..." : "Tentar novamente"}
+          </button>
+        </section>
+      ) : !attemptStarted ? (
+        <section className="sudeste-phase__victory">
+          <span className="sudeste-phase__medal" aria-hidden="true">🧭</span>
+          <h2>Pronto para explorar o Sudeste?</h2>
+          <p>Responda aos oito desafios, encaixe os quatro estados e conquiste até 1000 pontos.</p>
+          {feedback && <p role="alert">{feedback}</p>}
+          <button
+            className="sudeste-phase__back-to-map"
+            type="button"
+            onClick={() => void startMission()}
+            disabled={sessionStatus === "loading" || isStarting}
+          >
+            {sessionStatus === "loading" ? "Conectando..." : isStarting ? "Iniciando..." : "Começar missão"}
           </button>
         </section>
       ) : (
@@ -280,9 +431,11 @@ function SudestePhase() {
         </div>
       )}
 
-      {!isComplete && <p className="sudeste-phase__feedback" aria-live="polite">{feedback ?? "Toque em qualquer estado para abrir o desafio."}</p>}
+      {attemptStarted && completionStatus === "idle" && !isComplete && (
+        <p className="sudeste-phase__feedback" aria-live="polite">{feedback ?? "Toque em qualquer estado para abrir o desafio."}</p>
+      )}
 
-      {activeState && activeQuestion && (
+      {completionStatus === "idle" && activeState && activeQuestion && (
         <div className="sudeste-phase__modal-backdrop" role="presentation" onMouseDown={(event) => {
           if (event.target === event.currentTarget) closeChallenge();
         }}>

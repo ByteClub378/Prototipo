@@ -67,6 +67,7 @@ function CenterWestPhase() {
     useState<CentroOesteMission | null>(null);
   const [gameStatus, setGameStatus] = useState<GameStatus>("intro");
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [saveFailed, setSaveFailed] = useState(false);
   const [wrongMarker, setWrongMarker] = useState<WrongMarker | null>(null);
   const [timerNonce, setTimerNonce] = useState(0);
 
@@ -75,6 +76,7 @@ function CenterWestPhase() {
   const correctAnswersRef = useRef(0);
   const incorrectAnswersRef = useRef(0);
   const markerTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const completionSubmittingRef = useRef(false);
 
   const currentMission = missions[currentIndex];
   const progressPercent = Math.round(
@@ -244,7 +246,10 @@ function CenterWestPhase() {
   }
 
   async function finishPhase() {
+    if (completionSubmittingRef.current) return;
+    completionSubmittingRef.current = true;
     setGameStatus("saving");
+    setSaveFailed(false);
     setFeedback(null);
 
     const result = await completeAttempt({
@@ -256,6 +261,8 @@ function CenterWestPhase() {
     if (!result) {
       notifyError("Tente concluir novamente.", { title: "Não foi possível salvar sua conquista" });
       setFeedback("Não foi possível salvar sua conquista. Tente concluir novamente.");
+      setSaveFailed(true);
+      completionSubmittingRef.current = false;
       setGameStatus("discovery");
       return;
     }
@@ -263,6 +270,7 @@ function CenterWestPhase() {
     await refreshState();
     logEvent({ type: "level_complete", phase: "centro-oeste", level: 1 });
     setSelectedDiscovery(null);
+    completionSubmittingRef.current = false;
     setGameStatus(result.passed ? "complete" : "game-over");
   }
 
@@ -474,7 +482,9 @@ function CenterWestPhase() {
               {gameStatus === "saving"
                 ? "Salvando conquista..."
                 : discoveredIds.length === TOTAL_MISSIONS
-                  ? "Conquistar medalha"
+                  ? saveFailed
+                    ? "Tentar salvar novamente"
+                    : "Conquistar medalha"
                   : "Próxima missão"}
             </button>
           </article>

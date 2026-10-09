@@ -100,6 +100,7 @@ function NordestePhase() {
   const [timerNonce, setTimerNonce] = useState(0);
   const [isStarting, setIsStarting] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [saveFailed, setSaveFailed] = useState(false);
 
   const advanceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isSubmittingRef = useRef(false);
@@ -124,6 +125,7 @@ function NordestePhase() {
     const nextLevel = levels[idx];
     setShowBanner(showLevelBanner);
     setLevelComplete(false);
+    setSaveFailed(false);
     setCurrentPos(0);
     setFeedback(null);
     setSelectedOptionId(null);
@@ -146,6 +148,7 @@ function NordestePhase() {
     isSubmittingRef.current = true;
     setIsSubmitting(true);
     setIsResolving(true);
+    setSaveFailed(false);
     logEvent({ type: "level_complete", phase: "nordeste", level: level.id });
     const missionIncorrectAnswers = missionAnsweredRef.current - missionCorrectRef.current;
     const result = await completeAttempt({
@@ -169,12 +172,14 @@ function NordestePhase() {
       });
       setIsResolving(false);
       resolvingRef.current = false;
+      setSaveFailed(true);
       isSubmittingRef.current = false;
       setIsSubmitting(false);
       return;
     }
 
     await refreshState();
+    setSaveFailed(false);
     if (isLastLevel) {
       const answered = missionAnsweredRef.current;
       const correct = missionCorrectRef.current;
@@ -255,6 +260,7 @@ function NordestePhase() {
     setCurrentPos(0);
     setMissionFailed(false);
     setMissionComplete(false);
+    setSaveFailed(false);
     setFinalAccuracy(0);
     setFeedback(null);
     setIsResolving(false);
@@ -363,7 +369,7 @@ function NordestePhase() {
   }
 
   const timerDuration = level.durationSeconds;
-  const isTimerActive = !showBanner && !levelComplete && !missionComplete && !isResolving && !isSubmitting;
+  const isTimerActive = !showBanner && !levelComplete && !missionComplete && !isResolving && !isSubmitting && !saveFailed;
 
   return (
     <div ref={feedbackRef} className="nordeste-phase">
@@ -393,6 +399,17 @@ function NordestePhase() {
           </p>
           <button className="nordeste-phase__retry-button" onClick={restartMission}>
             Tentar nova partida
+          </button>
+          <button className="nordeste-phase__map-button" onClick={() => navigate("/mapa")}>
+            Voltar ao mapa
+          </button>
+        </GameCard>
+      ) : saveFailed ? (
+        <GameCard className="nordeste-phase__failed">
+          <h2>Não foi possível salvar esta rodada</h2>
+          <p>Seu progresso está pausado. Verifique sua conexão e tente salvar novamente.</p>
+          <button className="nordeste-phase__retry-button" onClick={() => void finishLevel()}>
+            Tentar salvar novamente
           </button>
           <button className="nordeste-phase__map-button" onClick={() => navigate("/mapa")}>
             Voltar ao mapa

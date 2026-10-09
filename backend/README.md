@@ -61,7 +61,7 @@ Sucesso: `{ "data": ... }`. Erro: `{ "error": { "code": "CODIGO", "message": "De
 
 ### Sessão
 
-- `POST /api/v1/session/bootstrap` — cria jogador (`201`, uma gravação) ou reutiliza o cookie válido (`200`, sem operação no Firestore). Retorna `playerId`, `expiresAt` e `created`.
+- `POST /api/v1/session/bootstrap` — cria jogador (`201`, uma gravação) ou reutiliza o cookie válido (`200`, sem operação no Firestore). Retorna `playerId`, `expiresAt` e `created`. O corpo opcional `{ "forceNew": true }` cria uma sessão de jogador nova mesmo quando há um cookie válido.
 - `POST /api/v1/session/refresh` — renova o cookie assinado sem acessar o Firestore.
 - `DELETE /api/v1/session` — remove o cookie neste navegador e retorna `204`.
 

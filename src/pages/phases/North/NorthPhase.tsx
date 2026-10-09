@@ -72,6 +72,7 @@ function NorthPhase() {
   const [isResolving, setIsResolving] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [saveFailed, setSaveFailed] = useState(false);
 
   const level = levels[levelIndex];
   const isLastLevel = levelIndex === levels.length - 1;
@@ -102,6 +103,7 @@ function NorthPhase() {
     setCurrentItemPos(0);
     setFeedback(null);
     setIsResolving(false);
+    setSaveFailed(false);
     setIsItemSelected(false);
     setTimerNonce((n) => n + 1);
     setItemOrder(nextLevel.itemIds);
@@ -121,6 +123,7 @@ function NorthPhase() {
     isSubmittingRef.current = true;
     setIsSubmitting(true);
     setIsResolving(true);
+    setSaveFailed(false);
     logEvent({ type: "level_complete", phase: "north", level: level.id });
     const missionIncorrectAnswers = missionAnsweredRef.current - missionCorrectRef.current;
     const result = await completeAttempt({
@@ -142,12 +145,14 @@ function NorthPhase() {
         message: "Confira sua conexão e tente novamente.",
       });
       setIsResolving(false);
+      setSaveFailed(true);
       isSubmittingRef.current = false;
       setIsSubmitting(false);
       return;
     }
 
     await refreshState();
+    setSaveFailed(false);
     if (isLastLevel) {
       const answered = missionAnsweredRef.current;
       const correct = missionCorrectRef.current;
@@ -224,6 +229,7 @@ function NorthPhase() {
     setCurrentItemPos(0);
     setMissionFailed(false);
     setMissionComplete(false);
+    setSaveFailed(false);
     setFinalAccuracy(0);
     setFeedback(null);
     setIsResolving(false);
@@ -400,7 +406,7 @@ function NorthPhase() {
   }
 
   const timerDuration = level.durationSeconds;
-  const isTimerActive = !showBanner && !levelComplete && !missionComplete && !isResolving && !isSubmitting;
+  const isTimerActive = !showBanner && !levelComplete && !missionComplete && !isResolving && !isSubmitting && !saveFailed;
 
   const progressCurrent = currentItemPos + 1;
   const progressTotal = itemOrder.length;
@@ -442,6 +448,17 @@ function NorthPhase() {
           </p>
           <button className="north-phase__retry-button" onClick={restartMission}>
             Tentar nova partida
+          </button>
+          <button className="north-phase__map-button" onClick={() => navigate("/mapa")}>
+            Voltar ao mapa
+          </button>
+        </GameCard>
+      ) : saveFailed ? (
+        <GameCard className="north-phase__failed">
+          <h2>Não foi possível salvar esta rodada</h2>
+          <p>Seu progresso está pausado. Verifique sua conexão e tente salvar novamente.</p>
+          <button className="north-phase__retry-button" onClick={() => void finishLevel()}>
+            Tentar salvar novamente
           </button>
           <button className="north-phase__map-button" onClick={() => navigate("/mapa")}>
             Voltar ao mapa

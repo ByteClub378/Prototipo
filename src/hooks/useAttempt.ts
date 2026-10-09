@@ -10,6 +10,15 @@ interface CompleteAttemptPayload {
   missionIncorrectAnswers?: number;
 }
 
+interface StoredCompleteAttempt {
+  attemptId: string;
+  body: CompleteAttemptPayload & {
+    regionId: RegionId;
+    levelNumber: number;
+    durationSeconds: number;
+  };
+}
+
 export interface AttemptCompleteResponse {
   attemptId: string;
   status: "completed";
@@ -26,6 +35,7 @@ export function useAttempt(regionId: RegionId) {
   const attemptIdRef = useRef<string | null>(null);
   const levelNumberRef = useRef<number | null>(null);
   const startTimeRef = useRef<number | null>(null);
+  const completionRef = useRef<StoredCompleteAttempt | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const startAttempt = useCallback(
@@ -35,6 +45,7 @@ export function useAttempt(regionId: RegionId) {
       attemptIdRef.current = attemptId;
       levelNumberRef.current = levelNumber;
       startTimeRef.current = Date.now();
+      completionRef.current = null;
       setError(null);
 
       try {
@@ -45,6 +56,7 @@ export function useAttempt(regionId: RegionId) {
         attemptIdRef.current = null;
         levelNumberRef.current = null;
         startTimeRef.current = null;
+        completionRef.current = null;
         setError(message);
         console.warn("[attempts] Falha ao validar início:", message);
         return false;
@@ -64,21 +76,28 @@ export function useAttempt(regionId: RegionId) {
       return null;
     }
 
-    const durationSeconds = startedAt
-      ? Math.max(1, Math.round((Date.now() - startedAt) / 1000))
-      : 1;
+    if (!completionRef.current) {
+      const durationSeconds = startedAt
+        ? Math.max(1, Math.round((Date.now() - startedAt) / 1000))
+        : 1;
+      completionRef.current = {
+        attemptId,
+        body: { regionId, levelNumber, ...payload, durationSeconds },
+      };
+    }
+
+    const completion = completionRef.current;
 
     try {
-      const result = await apiPatch<AttemptCompleteResponse>(`/attempts/${attemptId}/complete`, {
-        regionId,
-        levelNumber,
-        ...payload,
-        durationSeconds,
-      });
+      const result = await apiPatch<AttemptCompleteResponse>(
+        `/attempts/${completion.attemptId}/complete`,
+        completion.body,
+      );
 
       attemptIdRef.current = null;
       levelNumberRef.current = null;
       startTimeRef.current = null;
+      completionRef.current = null;
       setError(null);
 
       return result;

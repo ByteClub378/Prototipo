@@ -19,17 +19,16 @@ export default function Medals() {
   const { getStatus } = useProgress();
   const { gameState } = useSession();
   const [filter, setFilter] = useState<Filter>("all");
+  const awardedRegionIds = new Set(
+    gameState?.medals.map((medal) => medal.regionId) ?? [],
+  );
 
   const medals = REGIONS.map((region) => {
     const status = getStatus(region.id);
 
-    const serverMedal = gameState?.medals.some(
-      (medal) => medal.regionId === region.id,
-    );
-
     return {
       ...region,
-      earned: status === "completed" || Boolean(serverMedal),
+      earned: awardedRegionIds.has(region.id),
       available: status === "unlocked" && region.id !== "sul",
     };
   });
