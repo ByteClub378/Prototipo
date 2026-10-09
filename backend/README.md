@@ -26,6 +26,9 @@ API padrão: `http://localhost:3000`. Prefixo: `/api/v1`. `npm start` valida o F
 | `SESSION_TTL_HOURS` | Validade da sessão | `168` |
 | `SESSION_SECRET` | Segredo de assinatura, mínimo 32 caracteres | obrigatório em produção |
 | `PLAYER_RETENTION_DAYS` | Retenção de inativos | `365` |
+| `ADMIN_API_KEY` | Chave Bearer administrativa, mínimo 32 caracteres | desabilita endpoints se ausente |
+| `ADMIN_CACHE_TTL_SECONDS` | Cache das estatísticas, entre 30 e 3600 segundos | `300` |
+| `ADMIN_ORIGIN` | Origem adicional permitida para um painel separado | opcional |
 | `FIREBASE_PROJECT_ID` | ID do projeto Firebase | obrigatório |
 | `FIREBASE_CLIENT_EMAIL` | E-mail da conta de serviço | opcional com ADC |
 | `FIREBASE_PRIVATE_KEY` | Chave privada com `\n` escapado | opcional com ADC |
@@ -127,6 +130,57 @@ idempotente, contém `passed`, `minScore`, `maxScore`, `revision` e
 - Conclusão: duas leituras transacionais e duas gravações.
 - `lastSeenAt` muda somente em criação, conclusão e reinicialização.
 - Não são persistidos cliques, respostas individuais ou pulsos do cronômetro.
+- A primeira conclusão também marca `hasPlayed`, `firstPlayedAt` e incrementa
+  `completedAttemptCount` na mesma escrita já feita no documento do jogador.
+
+### Estatísticas administrativas
+
+Todas as rotas abaixo exigem:
+
+```http
+Authorization: Bearer SUA_ADMIN_API_KEY
+```
+
+- `GET /api/v1/admin/stats/overview` — total de jogadores, jogadores que
+  concluíram ao menos uma tentativa, tentativas, aprovação, precisão e duração.
+- `GET /api/v1/admin/stats/levels` — métricas por fase e rankings das fases mais
+  jogadas e com melhor desempenho.
+- `GET /api/v1/admin/stats/regions` — métricas e rankings consolidados por região.
+
+Exemplo resumido de `overview`:
+
+```json
+{
+  "data": {
+    "generatedAt": "2026-09-29T17:00:00.000Z",
+    "cacheTtlSeconds": 300,
+    "players": { "total": 120, "whoPlayed": 95, "whoOnlyOpened": 25 },
+    "attempts": {
+      "total": 430,
+      "passed": 310,
+      "failed": 120,
+      "passRate": 72.09,
+      "accuracyRate": 76.4,
+      "averageDurationSeconds": 48.2,
+      "totalCorrectAnswers": 1528,
+      "totalIncorrectAnswers": 472
+    }
+  }
+}
+```
+
+As consultas usam agregações do Firestore e cache em memória para economizar
+leituras. O cache é individual por processo e reinicia em cada deploy. Métricas
+por fase sem tentativas retornam zero e não aparecem nos rankings.
+
+`players.whoPlayed` depende dos campos adicionados ao jogador quando uma
+tentativa é concluída. Jogadores antigos que não concluírem outra tentativa após
+esta versão não são retroativamente marcados. Já as métricas baseadas em
+`attempts` consideram os documentos existentes no momento da consulta.
+
+`ADMIN_API_KEY` é uma proteção inicial de servidor. Não coloque essa chave em
+`VITE_*`, no bundle público ou no repositório. Um painel web definitivo deverá
+usar login administrativo e uma sessão HttpOnly própria.
 
 ### Exclusão
 
@@ -139,12 +193,14 @@ idempotente, contém `passed`, `minScore`, `maxScore`, `revision` e
 |---:|---|
 | 400 | `VALIDATION_ERROR`, `SCORE_OUT_OF_RANGE`, `INVALID_ATTEMPT_ID` |
 | 401 | `SESSION_INVALID` |
+| 401 | `ADMIN_UNAUTHORIZED` |
 | 403 | `LEVEL_LOCKED` |
 | 403 | `ORIGIN_NOT_ALLOWED` |
 | 404 | `LEVEL_NOT_FOUND` |
 | 409 | `ATTEMPT_ID_CONFLICT`, `ATTEMPT_ALREADY_COMPLETED` |
 | 429 | Limite de requisições excedido |
 | 500 | `INTERNAL_ERROR` |
+| 503 | `ADMIN_NOT_CONFIGURED` |
 
 ## Firestore e manutenção
 
@@ -156,15 +212,15 @@ npm run db:cleanup
 O seed cria ou atualiza `regions`, `levels` e `medals`. A aplicação usa `players`
 e `attempts`; sessões assinadas não geram documentos. Por ser um banco sem
 esquema, não existem migrations SQL. A limpeza remove jogadores inativos e suas
-tentativas. O catálogo atual contém cinco regiões, seis níveis do Norte,
-seis níveis do Nordeste e as respectivas medalhas regionais. Documentos de
+tentativas. O catálogo atual contém cinco regiões, três níveis do Norte, três
+níveis do Nordeste, uma fase do Centro-Oeste e as respectivas medalhas. Documentos de
 jogadores criados antes da ampliação do catálogo são normalizados pela API sem
 uma migração separada.
 
 As regras em `backend/firebase/firestore.rules` negam todo acesso direto de
 clientes. Elas devem ser publicadas no projeto Firebase; o Admin SDK do backend
 continua autorizado pela conta de serviço. As consultas atuais utilizam índices
-de campo único criados automaticamente pelo Firestore.
+de campo único e um índice composto para aprovação por fase.
 
 Com o Firebase CLI autenticado, publique regras e índices a partir da raiz:
 

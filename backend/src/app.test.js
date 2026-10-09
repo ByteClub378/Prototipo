@@ -28,4 +28,10 @@ describe("API HTTP", () => {
     expect(response.status).toBe(403);
     expect(response.body.error.code).toBe("ORIGIN_NOT_ALLOWED");
   });
+
+  it("não expõe estatísticas administrativas sem credencial", async () => {
+    const response = await request(app).get("/api/v1/admin/stats/overview");
+    expect([401, 503]).toContain(response.status);
+    expect(["ADMIN_UNAUTHORIZED", "ADMIN_NOT_CONFIGURED"]).toContain(response.body.error.code);
+  });
 });
