@@ -126,7 +126,7 @@ function StartScreen({
                 Sua jornada começa com “Jogar”.
               </p>
             )}
-            <div className="start-screen__menu">
+            ;<div className="start-screen__menu">
               <button
               className="start-screen__menu-item start-screen__menu-item--primary"
               onClick={handleNewGame}

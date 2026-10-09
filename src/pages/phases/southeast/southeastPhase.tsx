@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import InstructionAudio from "../../../components/game/InstructionAudio";
 import { useProgress } from "../../../context/ProgressContext";
 import { useScore } from "../../../context/ScoreContext";
+import { useGameFeedback } from "../../../hooks/useGameFeedback";
 import {
   createQuestionSelection,
   SOUTHEAST_STATES,
@@ -18,6 +20,10 @@ const STATE_COLORS: Record<SoutheastStateId, string> = {
 };
 
 function SudestePhase() {
+  const { feedbackRef, showSuccess, showError } = useGameFeedback<HTMLElement>();
+  const answerLockedRef = useRef(false);
+  const answerTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [isAnswering, setIsAnswering] = useState(false);
   const navigate = useNavigate();
   const { completeRegion } = useProgress();
   const { addPoints } = useScore();
@@ -29,6 +35,23 @@ function SudestePhase() {
   const [questionIndex, setQuestionIndex] = useState(0);
   const [feedback, setFeedback] = useState<string | null>(null);
   const completionReported = useRef(false);
+
+  useEffect(() => () => {
+    if (answerTimeoutRef.current) clearTimeout(answerTimeoutRef.current);
+  }, []);
+
+  function scheduleAnswer(callback: () => void, delay: number) {
+    answerTimeoutRef.current = setTimeout(() => {
+      callback();
+      answerLockedRef.current = false;
+      setIsAnswering(false);
+    }, delay);
+  }
+
+  function closeChallenge() {
+    if (answerLockedRef.current) return;
+    setActiveStateId(null);
+  }
 
   const activeState = SOUTHEAST_STATES.find((state) => state.id === activeStateId) ?? null;
   const activeQuestion = activeStateId ? questionSets[activeStateId][questionIndex] : null;
@@ -44,6 +67,7 @@ function SudestePhase() {
   const questionProgress = useMemo(() => `${placedIds.length} de 4 estados`, [placedIds.length]);
 
   function openChallenge(state: SoutheastState) {
+    if (answerLockedRef.current) return;
     if (unlockedIds.includes(state.id) || placedIds.includes(state.id)) return;
     setActiveStateId(state.id);
     setQuestionIndex(0);
@@ -58,12 +82,14 @@ function SudestePhase() {
       return;
     }
     if (stateId !== targetId) {
+      showError("Essa peça pertence a outro espaço. Confira a sigla e tente novamente!", { title: "Vamos encontrar o lugar certo!" });
       setFeedback("Essa peça pertence a outro espaço. Confira a sigla e tente novamente!");
       return;
     }
 
     setPlacedIds((current) => current.includes(stateId) ? current : [...current, stateId]);
     setSelectedId(null);
+    showSuccess(`${SOUTHEAST_STATES.find((state) => state.id === stateId)?.name} está no lugar certo!`, { title: "Peça encaixada!" });
     setFeedback(`${SOUTHEAST_STATES.find((state) => state.id === stateId)?.name} encaixado!`);
   }
 
@@ -93,37 +119,49 @@ function SudestePhase() {
   }
 
   function answerQuestion(optionIndex: number) {
-    if (!activeStateId || !activeQuestion) return;
+    if (!activeStateId || !activeQuestion || answerLockedRef.current) return;
+    answerLockedRef.current = true;
+    setIsAnswering(true);
     if (optionIndex !== activeQuestion.answerIndex) {
+      showError(activeQuestion.explanation, { title: "Quase! Leia a dica e tente de novo" });
       setFeedback(activeQuestion.explanation);
+      scheduleAnswer(() => {}, 700);
       return;
     }
 
+    showSuccess(activeQuestion.explanation, { title: "Resposta certa!" });
     addPoints(100);
     if (questionIndex === 0) {
-      setQuestionIndex(1);
       setFeedback("Resposta certa! Agora responda à segunda pergunta para liberar a peça.");
+      scheduleAnswer(() => {
+        setQuestionIndex(1);
+        setFeedback(null);
+      }, 1500);
       return;
     }
 
     const unlockedStateId = activeStateId;
     const state = SOUTHEAST_STATES.find((item) => item.id === unlockedStateId);
-    setUnlockedIds((current) => current.includes(unlockedStateId)
-      ? current
-      : [...current, unlockedStateId]);
-    setSelectedId(unlockedStateId);
-    setActiveStateId(null);
-    setQuestionIndex(0);
     setFeedback(`Duas respostas corretas! A peça ${state?.abbreviation} foi liberada para encaixe.`);
+    scheduleAnswer(() => {
+      setUnlockedIds((current) => current.includes(unlockedStateId) ? current : [...current, unlockedStateId]);
+      setSelectedId(unlockedStateId);
+      setActiveStateId(null);
+      setQuestionIndex(0);
+    }, 1500);
   }
 
   return (
-    <main className="sudeste-phase">
+    <main ref={feedbackRef} className="sudeste-phase">
       <header className="sudeste-phase__header">
         <div>
           <span className="sudeste-phase__eyebrow">MISSÃO DE GEOGRAFIA · REGIÃO SUDESTE</span>
           <h1>Monte o mapa do Sudeste!</h1>
           <p>Responda a duas perguntas para liberar cada estado e encaixá-lo no mapa.</p>
+          <InstructionAudio
+            text="Olá, explorador do Sudeste! Responda as duas perguntas de cada estado para liberá-lo no mapa. Depois, encaixe a peça no lugar correto e continue para o próximo."
+            audioSrc="/audio/sudeste.mp3"
+          />
         </div>
         <div className="sudeste-phase__progress" aria-label={questionProgress}>
           <span>{questionProgress}</span>
@@ -246,10 +284,10 @@ function SudestePhase() {
 
       {activeState && activeQuestion && (
         <div className="sudeste-phase__modal-backdrop" role="presentation" onMouseDown={(event) => {
-          if (event.target === event.currentTarget) setActiveStateId(null);
+          if (event.target === event.currentTarget) closeChallenge();
         }}>
           <section className="sudeste-phase__modal" role="dialog" aria-modal="true" aria-labelledby="sudeste-question-title">
-            <button className="sudeste-phase__modal-close" type="button" aria-label="Fechar desafio" onClick={() => setActiveStateId(null)}>×</button>
+            <button className="sudeste-phase__modal-close" type="button" aria-label="Fechar desafio" onClick={closeChallenge} disabled={isAnswering}>×</button>
             <span className="sudeste-phase__modal-icon" aria-hidden="true">{activeState.icon}</span>
             <span className="sudeste-phase__eyebrow">DESAFIO DO ESTADO · {activeState.name.toUpperCase()}</span>
             <div className="sudeste-phase__question-meta">
@@ -259,7 +297,7 @@ function SudestePhase() {
             <h2 id="sudeste-question-title">{activeQuestion.prompt}</h2>
             <div className="sudeste-phase__answers">
               {activeQuestion.options.map((option, index) => (
-                <button key={`${activeQuestion.id}-${option}`} type="button" onClick={() => answerQuestion(index)}>
+                <button key={`${activeQuestion.id}-${option}`} type="button" onClick={() => answerQuestion(index)} disabled={isAnswering}>
                   <span>{String.fromCharCode(65 + index)}</span>{option}
                 </button>
               ))}

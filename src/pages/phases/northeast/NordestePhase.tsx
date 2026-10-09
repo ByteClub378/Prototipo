@@ -16,6 +16,7 @@ import { useAttempt } from "../../../hooks/useAttempt";
 import { useSession } from "../../../context/SessionContext";
 import { POINTS_PER_CORRECT_ANSWER, POINTS_PER_INCORRECT_ANSWER } from "../../../data/scoring";
 import { shuffle } from "../../../utils/random";
+import { useGameFeedback } from "../../../hooks/useGameFeedback";
 import "./NordestePhase.css";
 
 const QUESTION_MAP = new Map(NORDESTE_QUESTIONS.map((q) => [q.id, q]));
@@ -71,6 +72,8 @@ interface Feedback {
 const MINIMUM_ACCURACY = 0.6;
 
 function NordestePhase() {
+  const { feedbackRef, showSuccess, showError, notifyError, clearFeedback } = useGameFeedback();
+  const resolvingRef = useRef(false);
   const navigate = useNavigate();
   const { addPoints, resetScore } = useScore();
   const { startAttempt, completeAttempt } = useAttempt("nordeste");
@@ -116,6 +119,8 @@ function NordestePhase() {
   const isLastLevel = levelIndex === levels.length - 1;
 
   function startLevel(idx: number, showLevelBanner = true) {
+    clearFeedback();
+    resolvingRef.current = false;
     const nextLevel = levels[idx];
     setShowBanner(showLevelBanner);
     setLevelComplete(false);
@@ -156,12 +161,14 @@ function NordestePhase() {
     });
 
     if (!result) {
+      notifyError("Confira sua conexão e tente novamente.", { title: "Não foi possível salvar" });
       setFeedback({
         type: "error",
         title: "Não foi possível salvar",
         message: "Confira sua conexão e tente novamente.",
       });
       setIsResolving(false);
+      resolvingRef.current = false;
       isSubmittingRef.current = false;
       setIsSubmitting(false);
       return;
@@ -197,6 +204,7 @@ function NordestePhase() {
     if (status === "error") {
       const recovered = await retryBootstrap();
       if (!recovered) {
+        notifyError("Verifique sua internet e tente novamente.", { title: "Não foi possível conectar" });
         setFeedback({
           type: "error",
           title: "Não foi possível conectar",
@@ -215,6 +223,7 @@ function NordestePhase() {
 
     const started = await startAttempt(level.id);
     if (!started) {
+      notifyError("Verifique sua conexão e tente novamente.", { title: "Não foi possível iniciar" });
       setFeedback({
         type: "error",
         title: "Não foi possível iniciar",
@@ -230,6 +239,9 @@ function NordestePhase() {
   }
 
   function restartMission() {
+    clearFeedback();
+    resolvingRef.current = false;
+    if (advanceTimeoutRef.current) clearTimeout(advanceTimeoutRef.current);
     const nextLevels = createNordesteLevels();
     resetScore();
     setLevels(nextLevels);
@@ -256,6 +268,7 @@ function NordestePhase() {
 
     const nextPos = currentPos + 1;
     if (nextPos < questionOrder.length) {
+      resolvingRef.current = false;
       setIsResolving(false);
       setCurrentPos(nextPos);
       setTimerNonce((n) => n + 1);
@@ -284,7 +297,8 @@ function NordestePhase() {
   }, [currentQuestion, level.optionCount]);
 
   function handleSelectOption(option: QuizOption) {
-    if (!currentQuestion || isResolving || isSubmitting) return;
+    if (!currentQuestion || resolvingRef.current || isResolving || isSubmitting) return;
+    resolvingRef.current = true;
 
     missionAnsweredRef.current += 1;
     setSelectedOptionId(option.id);
@@ -297,8 +311,9 @@ function NordestePhase() {
       levelCorrectRef.current += 1;
       logEvent({ type: "item_correct", phase: "nordeste", level: level.id, item: currentQuestion.id });
       setFeedback({ type: "success", title: "Muito bem!", message: currentQuestion.fact });
+      showSuccess(currentQuestion.fact, { title: "Resposta certa!" });
       setIsResolving(true);
-      scheduleAdvance(advanceQuestion, 1100);
+      scheduleAdvance(advanceQuestion, 3500);
     } else {
       playErrorSound();
       addPoints(POINTS_PER_INCORRECT_ANSWER);
@@ -306,22 +321,25 @@ function NordestePhase() {
       levelScoreRef.current = Math.max(0, levelScoreRef.current + POINTS_PER_INCORRECT_ANSWER);
       logEvent({ type: "item_incorrect", phase: "nordeste", level: level.id, item: currentQuestion.id });
       const correctOption = currentQuestion.options.find((o) => o.correct);
+      showError(`A resposta certa era "${correctOption?.text ?? ""}". ${currentQuestion.fact}`, { title: "Quase! Vamos aprender juntos" });
       setFeedback({
         type: "error",
         title: "Quase!",
         message: `A resposta certa era "${correctOption?.text ?? ""}". ${currentQuestion.fact}`,
       });
       setIsResolving(true);
-      scheduleAdvance(advanceQuestion, 1100);
+      scheduleAdvance(advanceQuestion, 4500);
     }
   }
 
   function handleTimeout() {
-    if (!currentQuestion || isResolving || isSubmitting) return;
+    if (!currentQuestion || resolvingRef.current || isResolving || isSubmitting) return;
+    resolvingRef.current = true;
 
     missionAnsweredRef.current += 1;
 
     playTimeoutSound();
+    showError(`Vamos aprender e seguir em frente: ${currentQuestion.fact}`, { title: "Tempo esgotado!" });
     levelIncorrectRef.current += 1;
     const duration = level.durationSeconds;
     logEvent({
@@ -337,7 +355,7 @@ function NordestePhase() {
       message: `Vamos aprender e seguir em frente: ${currentQuestion.fact}`,
     });
     setIsResolving(true);
-    scheduleAdvance(advanceQuestion, 1400);
+    scheduleAdvance(advanceQuestion, 4500);
   }
 
   function goToNextLevel() {
@@ -348,7 +366,7 @@ function NordestePhase() {
   const isTimerActive = !showBanner && !levelComplete && !missionComplete && !isResolving && !isSubmitting;
 
   return (
-    <div className="nordeste-phase">
+    <div ref={feedbackRef} className="nordeste-phase">
       <MissionHeader
         title={`Rodada ${level.id} de ${levels.length} — ${level.title}`}
         instruction={level.instruction}
@@ -387,6 +405,8 @@ function NordestePhase() {
           onStart={handleStartLevel} 
           buttonLabel={status === "loading" ? "Conectando..." : status === "error" ? "Tentar conectar novamente" : "Começar"}
           disabled={status === "loading" || isStarting}
+          narration="Olá, explorador! No Nordeste, leia a pergunta e observe as quatro alternativas. Toque na resposta que você considera correta. Depois, leia a curiosidade para aprender mais. Ouça as instruções antes de apertar Começar!"
+          audioSrc="/audio/nordeste.mp3"
         />
       ) : levelComplete ? (
         <GameCard className="nordeste-phase__complete">
@@ -438,7 +458,7 @@ function NordestePhase() {
                           <img
                             className="nordeste-phase__option-image"
                             src={OPTION_IMAGES[option.id] ?? option.image}
-                            alt={option.text}
+                            alt=""
                             loading="lazy"
                           />
                         ) : (

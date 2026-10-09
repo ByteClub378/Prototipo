@@ -1,0 +1,35 @@
+.instruction-audio {
+  margin: 14px 0;
+}
+
+.instruction-audio button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 10px 16px;
+  border: 2px solid #c4942e;
+  border-radius: 16px;
+  background: #fff0bb;
+  color: #4f3a0c;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.instruction-audio button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.instruction-audio button:focus-visible {
+  outline: 3px solid #285c3d;
+  outline-offset: 3px;
+}
+
+.instruction-audio > span:not(:empty) {
+  display: block;
+  margin-top: 8px;
+  color: #6c4026;
+  font-size: 0.9rem;
+}

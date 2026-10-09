@@ -1,3 +1,4 @@
+
 import {
   useEffect,
   useRef,
@@ -6,11 +7,13 @@ import {
 } from "react";
 import { useNavigate } from "react-router-dom";
 import GameCard from "../../../components/ui/GameCard";
+import InstructionAudio from "../../../components/game/InstructionAudio";
 import MissionTimer from "../../../components/game/MissionTimer";
 import ScoreDisplay from "../../../components/game/ScoreDisplay";
 import { useScore } from "../../../context/ScoreContext";
 import { useSession } from "../../../context/SessionContext";
 import { useAttempt } from "../../../hooks/useAttempt";
+import { useGameFeedback } from "../../../hooks/useGameFeedback";
 import {
   POINTS_PER_CORRECT_ANSWER,
   POINTS_PER_INCORRECT_ANSWER,
@@ -48,6 +51,9 @@ interface WrongMarker {
 }
 
 function CenterWestPhase() {
+  const { feedbackRef, showSuccess, showError, notifyError, clearFeedback } = useGameFeedback<HTMLElement>();
+  const actionLockedRef = useRef(false);
+  const unlockTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const navigate = useNavigate();
   const { addPoints, resetScore } = useScore();
   const { startAttempt, completeAttempt } = useAttempt("centro-oeste");
@@ -78,10 +84,14 @@ function CenterWestPhase() {
   useEffect(() => {
     return () => {
       if (markerTimeoutRef.current) clearTimeout(markerTimeoutRef.current);
+      if (unlockTimeoutRef.current) clearTimeout(unlockTimeoutRef.current);
     };
   }, []);
 
   function resetLocalGame() {
+    clearFeedback();
+    actionLockedRef.current = false;
+    if (unlockTimeoutRef.current) clearTimeout(unlockTimeoutRef.current);
     const nextMissions = createCentroOesteMissionOrder();
     setMissions(nextMissions);
     setCurrentIndex(0);
@@ -111,6 +121,7 @@ function CenterWestPhase() {
     if (sessionStatus === "error") {
       const recovered = await retryBootstrap();
       if (!recovered) {
+        notifyError("Verifique sua internet e tente novamente.", { title: "Não foi possível conectar" });
         setFeedback("Não foi possível conectar. Verifique sua internet e tente novamente.");
         setGameStatus("intro");
         return;
@@ -119,6 +130,7 @@ function CenterWestPhase() {
 
     const started = await startAttempt(1);
     if (!started) {
+      notifyError("Tente novamente.", { title: "Não foi possível iniciar a fase" });
       setFeedback("Não foi possível iniciar a fase. Tente novamente.");
       setGameStatus("intro");
       return;
@@ -138,7 +150,8 @@ function CenterWestPhase() {
   }
 
   function loseLife(message: string, x?: number, y?: number, playSound = true) {
-    if (gameStatus !== "playing") return;
+    if (gameStatus !== "playing" || actionLockedRef.current || livesRef.current <= 0) return;
+    actionLockedRef.current = true;
 
     const nextLives = livesRef.current - 1;
     livesRef.current = nextLives;
@@ -150,6 +163,9 @@ function CenterWestPhase() {
     );
     addPoints(POINTS_PER_INCORRECT_ANSWER);
     setFeedback(message);
+    showError(nextLives > 0 ? message : "Seus corações acabaram. Recomece a expedição para tentar novamente!", {
+      title: nextLives > 0 ? "Observe a dica e tente novamente" : "Fim da expedição",
+    });
 
     logEvent({
       type: "item_incorrect",
@@ -168,6 +184,7 @@ function CenterWestPhase() {
 
     if (playSound) playErrorSound();
     setTimerNonce((value) => value + 1);
+    unlockTimeoutRef.current = setTimeout(() => { actionLockedRef.current = false; }, 400);
   }
 
   function handleMapClick(event: ReactMouseEvent<HTMLDivElement>) {
@@ -184,7 +201,7 @@ function CenterWestPhase() {
     mission: CentroOesteMission,
   ) {
     event.stopPropagation();
-    if (gameStatus !== "playing" || discoveredIds.includes(mission.id)) return;
+    if (gameStatus !== "playing" || actionLockedRef.current || discoveredIds.includes(mission.id)) return;
 
     if (mission.id !== currentMission.id) {
       loseLife(
@@ -195,6 +212,8 @@ function CenterWestPhase() {
       return;
     }
 
+    actionLockedRef.current = true;
+    showSuccess(mission.fact, { title: `${mission.name} encontrado!` });
     playSuccessSound();
     addPoints(POINTS_PER_CORRECT_ANSWER);
     levelScoreRef.current += POINTS_PER_CORRECT_ANSWER;
@@ -214,7 +233,7 @@ function CenterWestPhase() {
   }
 
   function handleTimeout() {
-    if (gameStatus !== "playing") return;
+    if (gameStatus !== "playing" || actionLockedRef.current) return;
     playTimeoutSound();
     loseLife(
       "O tempo acabou! Você perdeu um coração e ganhou mais 30 segundos.",
@@ -235,6 +254,7 @@ function CenterWestPhase() {
     });
 
     if (!result) {
+      notifyError("Tente concluir novamente.", { title: "Não foi possível salvar sua conquista" });
       setFeedback("Não foi possível salvar sua conquista. Tente concluir novamente.");
       setGameStatus("discovery");
       return;
@@ -247,12 +267,14 @@ function CenterWestPhase() {
   }
 
   function continueAfterDiscovery() {
+    clearFeedback();
     if (discoveredIds.length === TOTAL_MISSIONS) {
       void finishPhase();
       return;
     }
 
     setCurrentIndex((value) => value + 1);
+    actionLockedRef.current = false;
     setLives(MAX_LIVES);
     livesRef.current = MAX_LIVES;
     setSelectedDiscovery(null);
@@ -270,7 +292,7 @@ function CenterWestPhase() {
   const showBoard = ["playing", "discovery", "saving"].includes(gameStatus);
 
   return (
-    <section className="centro-oeste-phase">
+    <section ref={feedbackRef} className="centro-oeste-phase">
       <header className="centro-oeste-phase__header">
         <div>
           <h1>🗺️ Guardiões do Centro-Oeste</h1>
@@ -298,6 +320,10 @@ function CenterWestPhase() {
             Cada missão tem três corações e 30 segundos por tentativa. Os alvos
             aparecem em ordem diferente a cada partida.
           </p>
+          <InstructionAudio
+            text="Olá, explorador do Centro-Oeste! Observe o mapa e encontre cada alvo indicado. Você tem três corações e 30 segundos para cada missão. Quando tiver certeza, toque no ponto correto e siga a dica para descobrir mais."
+            audioSrc="/audio/centro-oeste.mp3"
+          />
           {feedback && <p className="centro-oeste-phase__error">{feedback}</p>}
           <button
             type="button"
