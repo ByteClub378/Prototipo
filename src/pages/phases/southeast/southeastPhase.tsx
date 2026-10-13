@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import InstructionAudio from "../../../components/game/InstructionAudio";
+import { NarrationButton } from "../../../components/NarrationButton";
+import { narrations } from "../../../data/narrations";
 import { useScore } from "../../../context/ScoreContext";
 import { useSession } from "../../../context/SessionContext";
 import { POINTS_PER_CORRECT_ANSWER, POINTS_PER_INCORRECT_ANSWER } from "../../../data/scoring";
@@ -257,10 +258,7 @@ function SudestePhase() {
           <span className="sudeste-phase__eyebrow">MISSÃO DE GEOGRAFIA · REGIÃO SUDESTE</span>
           <h1>Monte o mapa do Sudeste!</h1>
           <p>Responda a duas perguntas para liberar cada estado e encaixá-lo no mapa.</p>
-          <InstructionAudio
-            text="Olá, explorador do Sudeste! Responda as duas perguntas de cada estado para liberá-lo no mapa. Depois, encaixe a peça no lugar correto e continue para o próximo."
-            audioSrc="/audio/sudeste.mp3"
-          />
+          <NarrationButton audios={narrations.sudeste} />
         </div>
         <div className="sudeste-phase__progress" aria-label={questionProgress}>
           <span>{questionProgress}</span>

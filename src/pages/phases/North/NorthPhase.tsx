@@ -17,6 +17,7 @@ import { useSession } from "../../../context/SessionContext";
 import { useGameFeedback } from "../../../hooks/useGameFeedback";
 import { shuffle } from "../../../utils/random";
 import ScoreDisplay from "../../../components/game/ScoreDisplay";
+import { narrations } from "../../../data/narrations";
 import "./NorthPhase.css";
 
 
@@ -471,11 +472,7 @@ function NorthPhase() {
           onStart={handleStartLevel}
           buttonLabel={status === "loading" ? "Conectando..." : status === "error" ? "Tentar conectar novamente" : "Começar"}
           disabled={status === "loading" || isStarting}
-          narration={
-            level.mechanic === "inverted"
-              ? "Olá, explorador! Observe o ambiente indicado e o cartão. Escolha Pertence ou Não pertence. Cada rodada tem um tempo para responder. Ouça as instruções antes de apertar Começar!"
-              : "Olá, explorador! No Norte, observe o animal ou a planta do cartão. No computador, arraste o cartão para o ambiente correto. No celular, toque no ambiente que você escolheu. Ouça as instruções antes de apertar Começar!"
-          }
+          audios={narrations.norte}
         />
       ) : levelComplete ? (
         <GameCard className="north-phase__complete">

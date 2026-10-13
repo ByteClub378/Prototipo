@@ -2,10 +2,6 @@ import { useId, useState } from 'react';
 import './StartScreen.css';
 import defaultBackground from '../../assets/paisagem-brasil.png';
 import defaultLogo from '../../assets/logo-cruzeiro-do-sul.png';
-import { useNavigate } from "react-router-dom";
-import { useProgress } from "../../context/ProgressContext";
-import { useSession } from "../../context/SessionContext";
-import { ApiError } from "../../utils/api";
 
 export type StartScreenProps = {
   onPlay?: () => void;
@@ -37,37 +33,7 @@ function StartScreen({
   const titleId = useId();
   const [logoFailed, setLogoFailed] = useState(false);
 
-    const navigate = useNavigate();
-    const { resetProgress } = useProgress();
-    const { status, retryBootstrap } = useSession();
-    const [isResetting, setIsResetting] = useState(false);
-    const [resetError, setResetError] = useState<string | null>(null);
-
-    const regions = ['Norte', 'Nordeste', 'Centro-Oeste', 'Sudeste', 'Sul'];
-
-
-
-    async function handleNewGame() {
-  if (isResetting || status === "loading") return;
-  setIsResetting(true);
-  setResetError(null);
-  try {
-    if (status !== "ready" && !(await retryBootstrap())) {
-      throw new Error("Não foi possível conectar com o servidor.");
-    }
-    await resetProgress();
-    navigate("/mapa");
-  } catch (error) {
-    console.error("[start] Falha ao iniciar novo jogo:", error);
-    setResetError(
-      error instanceof ApiError
-        ? error.message
-        : "Não foi possível iniciar. Verifique se a API está ligada e tente novamente."
-    );
-  } finally {
-    setIsResetting(false);
-  }
-}
+  const regions = ['Norte', 'Nordeste', 'Centro-Oeste', 'Sudeste', 'Sul'];
 
   return (
     <main className="adventure-start" aria-labelledby={titleId}>
@@ -126,27 +92,15 @@ function StartScreen({
                 Sua jornada começa com “Jogar”.
               </p>
             )}
-            ;<div className="start-screen__menu">
-              <button
-              className="start-screen__menu-item start-screen__menu-item--primary"
-              onClick={handleNewGame}
-              disabled={isResetting || status === "loading"}
+            <button
+              type="button"
+              className="adventure-start__button adventure-start__button--credits"
+              onClick={onCredits}
+              disabled={isLoading}
             >
-              {isResetting || status === "loading" ? "Conectando..." : "🎮 Novo Jogo"}
-              </button>
-          
-              {resetError && <p role="alert">{resetError}</p>}
-          
-                <button
-                  type="button"
-                  className="adventure-start__button adventure-start__button--credits"
-                  onClick={onCredits}
-                  disabled={isLoading}
-                >
-                  <span aria-hidden="true">✦</span>
-                  <span>Créditos</span>
-                </button>
-            </div>
+              <span aria-hidden="true">✦</span>
+              <span>Créditos</span>
+            </button>
           </nav>
         </section>
           
