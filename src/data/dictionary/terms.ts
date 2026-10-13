@@ -1,0 +1,178 @@
+import type { RegionId } from "../../types";
+
+export type DictionaryCategory = "natureza" | "cultura" | "geografia" | "culinaria";
+
+export interface DictionaryEntry {
+  id: string;
+  term: string;
+  definition: string;
+  example: string;
+  regionId: RegionId;
+  category: DictionaryCategory;
+  icon: string;
+}
+
+export const DICTIONARY_ENTRIES: DictionaryEntry[] = [
+  {
+    id: "onca-pintada",
+    term: "Onça-pintada",
+    definition: "Maior felino das Américas. Vive em diferentes ambientes brasileiros e é uma importante predadora.",
+    example: "A onça-pintada ajuda a manter o equilíbrio da natureza.",
+    regionId: "norte",
+    category: "natureza",
+    icon: "🐆",
+  },
+  {
+    id: "castanheira",
+    term: "Castanheira",
+    definition: "Árvore amazônica que produz a castanha-do-brasil, alimento conhecido também como castanha-do-pará.",
+    example: "A castanheira oferece alimento e abrigo para diferentes seres vivos.",
+    regionId: "norte",
+    category: "natureza",
+    icon: "🌳",
+  },
+  {
+    id: "boto-cor-de-rosa",
+    term: "Boto-cor-de-rosa",
+    definition: "Golfinho de água doce que vive em rios da Amazônia.",
+    example: "O boto-cor-de-rosa respira o ar fora da água, como outros mamíferos.",
+    regionId: "norte",
+    category: "natureza",
+    icon: "🐬",
+  },
+  {
+    id: "ariranha",
+    term: "Ariranha",
+    definition: "Mamífero semiaquático que vive em grupos e costuma ficar perto de rios.",
+    example: "A ariranha nada muito bem e procura peixes para se alimentar.",
+    regionId: "norte",
+    category: "natureza",
+    icon: "🦦",
+  },
+  {
+    id: "caatinga",
+    term: "Caatinga",
+    definition: "Bioma brasileiro de clima quente e seco, onde plantas e animais têm adaptações para enfrentar a falta de água.",
+    example: "Algumas plantas da Caatinga perdem as folhas durante a estação seca.",
+    regionId: "nordeste",
+    category: "geografia",
+    icon: "🌵",
+  },
+  {
+    id: "lencois-maranhenses",
+    term: "Lençóis Maranhenses",
+    definition: "Paisagem do Maranhão formada por dunas e lagoas que se acumulam entre elas em períodos chuvosos.",
+    example: "As lagoas entre as dunas mudam ao longo do ano.",
+    regionId: "nordeste",
+    category: "geografia",
+    icon: "🏝️",
+  },
+  {
+    id: "acaraje",
+    term: "Acarajé",
+    definition: "Comida de origem afro-brasileira feita tradicionalmente com massa de feijão-fradinho frita em azeite de dendê.",
+    example: "O acarajé é um alimento muito conhecido na cultura da Bahia.",
+    regionId: "nordeste",
+    category: "culinaria",
+    icon: "🍽️",
+  },
+  {
+    id: "bolo-de-rolo",
+    term: "Bolo de rolo",
+    definition: "Doce tradicional de Pernambuco feito com camadas finas de massa e recheio de goiabada.",
+    example: "Quando é enrolado, o bolo de rolo forma várias camadas bem fininhas.",
+    regionId: "nordeste",
+    category: "culinaria",
+    icon: "🍰",
+  },
+  {
+    id: "cerrado",
+    term: "Cerrado",
+    definition: "Bioma com diferentes paisagens, como campos e áreas com árvores baixas e retorcidas.",
+    example: "O ipê-amarelo pode colorir a paisagem do Cerrado durante a floração.",
+    regionId: "centro-oeste",
+    category: "geografia",
+    icon: "🌾",
+  },
+  {
+    id: "pantanal",
+    term: "Pantanal",
+    definition: "Grande planície que passa por períodos de cheia e de seca, influenciando a vida de plantas e animais.",
+    example: "Na época das cheias, a água ocupa grandes áreas do Pantanal.",
+    regionId: "centro-oeste",
+    category: "geografia",
+    icon: "🛶",
+  },
+  {
+    id: "lobo-guara",
+    term: "Lobo-guará",
+    definition: "Canídeo de pernas longas que vive principalmente em áreas do Cerrado.",
+    example: "Ao comer frutos, o lobo-guará também ajuda a espalhar sementes.",
+    regionId: "centro-oeste",
+    category: "natureza",
+    icon: "🐺",
+  },
+  {
+    id: "tuiuiu",
+    term: "Tuiuiú",
+    definition: "Ave de grande porte conhecida como um dos símbolos do Pantanal.",
+    example: "O tuiuiú pode ser visto em áreas alagadas do Pantanal.",
+    regionId: "centro-oeste",
+    category: "natureza",
+    icon: "🕊️",
+  },
+  {
+    id: "metropole",
+    term: "Metrópole",
+    definition: "Grande cidade que concentra pessoas, empregos, serviços e mantém relações com outros municípios.",
+    example: "Muitas pessoas viajam de cidades vizinhas para trabalhar em uma metrópole.",
+    regionId: "sudeste",
+    category: "geografia",
+    icon: "🏙️",
+  },
+  {
+    id: "campo-e-cidade",
+    term: "Campo e cidade",
+    definition: "Espaços diferentes que se conectam por meio do trabalho, do transporte, dos serviços e da circulação de produtos.",
+    example: "Alimentos produzidos no campo podem ser vendidos em mercados da cidade.",
+    regionId: "sudeste",
+    category: "geografia",
+    icon: "🚜",
+  },
+  {
+    id: "mata-atlantica",
+    term: "Mata Atlântica",
+    definition: "Bioma que originalmente cobria grande parte do litoral brasileiro e hoje está bastante transformado pelas atividades humanas.",
+    example: "Proteger os remanescentes da Mata Atlântica ajuda muitas espécies.",
+    regionId: "sudeste",
+    category: "natureza",
+    icon: "🌳",
+  },
+  {
+    id: "araucaria",
+    term: "Araucária",
+    definition: "Árvore também chamada de pinheiro-do-paraná, característica de áreas do Sul do Brasil.",
+    example: "O pinhão é a semente da araucária.",
+    regionId: "sul",
+    category: "natureza",
+    icon: "🌲",
+  },
+  {
+    id: "chimarrao",
+    term: "Chimarrão",
+    definition: "Bebida preparada com erva-mate e água quente, tradicional em partes da Região Sul.",
+    example: "O chimarrão costuma ser compartilhado em uma cuia.",
+    regionId: "sul",
+    category: "cultura",
+    icon: "🧉",
+  },
+  {
+    id: "pampa",
+    term: "Pampa",
+    definition: "Bioma de campos naturais, presente no Rio Grande do Sul.",
+    example: "Nos campos do Pampa, gramíneas e outras plantas rasteiras são comuns.",
+    regionId: "sul",
+    category: "geografia",
+    icon: "🌱",
+  },
+];
