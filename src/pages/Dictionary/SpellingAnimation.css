@@ -1,0 +1,356 @@
+.spelling-animation {
+  width: min(100%, 460px);
+  margin: 20px auto;
+  padding: 22px;
+  border: 1px solid #dce8d8;
+  border-radius: 20px;
+  background: linear-gradient(145deg, #f7fbf3, #e8f3e3);
+  color: #174c32;
+  text-align: center;
+  font-family: inherit;
+}
+
+.spelling-animation__stage {
+  position: relative;
+  display: grid;
+  min-height: 230px;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 16px;
+  background: radial-gradient(circle at 50% 48%, #fff 0 32%, transparent 33%),
+    #dcebd6;
+}
+
+.spelling-animation__hand {
+  position: relative;
+  width: 168px;
+  height: 195px;
+  transform-origin: 50% 90%;
+}
+
+.spelling-animation__palm {
+  position: absolute;
+  z-index: 2;
+  bottom: 8px;
+  left: 39px;
+  width: 88px;
+  height: 91px;
+  border: 3px solid #8a4e35;
+  border-radius: 38px 38px 30px 30px;
+  background: #eaa77e;
+  box-shadow: inset -8px -5px 0 rgb(138 78 53 / 10%);
+}
+
+.spelling-animation__finger {
+  position: absolute;
+  z-index: 1;
+  bottom: 84px;
+  width: 19px;
+  height: 67px;
+  border: 3px solid #8a4e35;
+  border-radius: 15px 15px 10px 10px;
+  background: #f1b28a;
+  transform-origin: 50% 100%;
+  transition: height 250ms ease, transform 250ms ease;
+}
+
+.spelling-animation__finger--index {
+  left: 46px;
+}
+
+.spelling-animation__finger--middle {
+  left: 66px;
+  height: 77px;
+}
+
+.spelling-animation__finger--ring {
+  left: 86px;
+  height: 72px;
+}
+
+.spelling-animation__finger--pinky {
+  left: 106px;
+  height: 57px;
+}
+
+.spelling-animation__thumb {
+  position: absolute;
+  z-index: 3;
+  bottom: 40px;
+  left: 18px;
+  width: 55px;
+  height: 21px;
+  border: 3px solid #8a4e35;
+  border-radius: 18px;
+  background: #f1b28a;
+  transform: rotate(-38deg);
+  transform-origin: 90% 50%;
+  transition: transform 250ms ease;
+}
+
+.spelling-animation__hand--a .spelling-animation__finger,
+.spelling-animation__hand--e .spelling-animation__finger,
+.spelling-animation__hand--m .spelling-animation__finger,
+.spelling-animation__hand--n .spelling-animation__finger,
+.spelling-animation__hand--s .spelling-animation__finger,
+.spelling-animation__hand--t .spelling-animation__finger {
+  height: 34px;
+  transform: rotate(48deg);
+}
+
+.spelling-animation__hand--a .spelling-animation__thumb,
+.spelling-animation__hand--s .spelling-animation__thumb {
+  transform: rotate(8deg) translate(8px, -8px);
+}
+
+.spelling-animation__hand--e .spelling-animation__thumb,
+.spelling-animation__hand--m .spelling-animation__thumb,
+.spelling-animation__hand--n .spelling-animation__thumb,
+.spelling-animation__hand--t .spelling-animation__thumb {
+  transform: rotate(30deg) translate(8px, 2px);
+}
+
+.spelling-animation__hand--b .spelling-animation__thumb {
+  transform: rotate(48deg) translate(10px, -5px);
+}
+
+.spelling-animation__hand--c .spelling-animation__finger,
+.spelling-animation__hand--o .spelling-animation__finger {
+  height: 55px;
+  transform: rotate(18deg);
+}
+
+.spelling-animation__hand--c .spelling-animation__finger--middle,
+.spelling-animation__hand--o .spelling-animation__finger--middle {
+  height: 61px;
+  transform: rotate(7deg);
+}
+
+.spelling-animation__hand--c .spelling-animation__finger--ring,
+.spelling-animation__hand--o .spelling-animation__finger--ring {
+  transform: rotate(-7deg);
+}
+
+.spelling-animation__hand--c .spelling-animation__finger--pinky,
+.spelling-animation__hand--o .spelling-animation__finger--pinky {
+  height: 49px;
+  transform: rotate(-18deg);
+}
+
+.spelling-animation__hand--d .spelling-animation__finger--middle,
+.spelling-animation__hand--d .spelling-animation__finger--ring,
+.spelling-animation__hand--d .spelling-animation__finger--pinky,
+.spelling-animation__hand--f .spelling-animation__finger--index,
+.spelling-animation__hand--g .spelling-animation__finger--middle,
+.spelling-animation__hand--g .spelling-animation__finger--ring,
+.spelling-animation__hand--g .spelling-animation__finger--pinky,
+.spelling-animation__hand--h .spelling-animation__finger--ring,
+.spelling-animation__hand--h .spelling-animation__finger--pinky,
+.spelling-animation__hand--i .spelling-animation__finger--index,
+.spelling-animation__hand--i .spelling-animation__finger--middle,
+.spelling-animation__hand--i .spelling-animation__finger--ring,
+.spelling-animation__hand--j .spelling-animation__finger--index,
+.spelling-animation__hand--j .spelling-animation__finger--middle,
+.spelling-animation__hand--j .spelling-animation__finger--ring,
+.spelling-animation__hand--l .spelling-animation__finger--middle,
+.spelling-animation__hand--l .spelling-animation__finger--ring,
+.spelling-animation__hand--l .spelling-animation__finger--pinky,
+.spelling-animation__hand--u .spelling-animation__finger--ring,
+.spelling-animation__hand--u .spelling-animation__finger--pinky,
+.spelling-animation__hand--v .spelling-animation__finger--ring,
+.spelling-animation__hand--v .spelling-animation__finger--pinky,
+.spelling-animation__hand--x .spelling-animation__finger--middle,
+.spelling-animation__hand--x .spelling-animation__finger--ring,
+.spelling-animation__hand--x .spelling-animation__finger--pinky,
+.spelling-animation__hand--y .spelling-animation__finger--index,
+.spelling-animation__hand--y .spelling-animation__finger--middle,
+.spelling-animation__hand--y .spelling-animation__finger--ring {
+  height: 34px;
+  transform: rotate(48deg);
+}
+
+.spelling-animation__hand--f .spelling-animation__finger--middle,
+.spelling-animation__hand--f .spelling-animation__finger--ring,
+.spelling-animation__hand--f .spelling-animation__finger--pinky,
+.spelling-animation__hand--k .spelling-animation__finger--index,
+.spelling-animation__hand--k .spelling-animation__finger--middle,
+.spelling-animation__hand--l .spelling-animation__finger--index,
+.spelling-animation__hand--w .spelling-animation__finger--index,
+.spelling-animation__hand--w .spelling-animation__finger--middle,
+.spelling-animation__hand--w .spelling-animation__finger--ring,
+.spelling-animation__hand--y .spelling-animation__finger--pinky {
+  height: 73px;
+  transform: rotate(0deg);
+}
+
+.spelling-animation__hand--g .spelling-animation__finger--index,
+.spelling-animation__hand--h .spelling-animation__finger--index,
+.spelling-animation__hand--h .spelling-animation__finger--middle {
+  height: 62px;
+  transform: rotate(-82deg) translateX(-10px);
+}
+
+.spelling-animation__hand--i .spelling-animation__finger--pinky,
+.spelling-animation__hand--j .spelling-animation__finger--pinky {
+  height: 73px;
+  transform: rotate(0deg);
+}
+
+.spelling-animation__hand--j {
+  animation: spelling-letter-j 850ms ease-in-out infinite alternate;
+}
+
+.spelling-animation__hand--k .spelling-animation__finger--ring,
+.spelling-animation__hand--k .spelling-animation__finger--pinky,
+.spelling-animation__hand--p .spelling-animation__finger--ring,
+.spelling-animation__hand--p .spelling-animation__finger--pinky,
+.spelling-animation__hand--r .spelling-animation__finger--ring,
+.spelling-animation__hand--r .spelling-animation__finger--pinky,
+.spelling-animation__hand--v .spelling-animation__finger--ring,
+.spelling-animation__hand--v .spelling-animation__finger--pinky {
+  height: 34px;
+  transform: rotate(48deg);
+}
+
+.spelling-animation__hand--k .spelling-animation__thumb,
+.spelling-animation__hand--p .spelling-animation__thumb {
+  transform: rotate(-8deg) translate(5px, -5px);
+}
+
+.spelling-animation__hand--l .spelling-animation__thumb,
+.spelling-animation__hand--y .spelling-animation__thumb {
+  transform: rotate(-100deg) translate(-4px, -5px);
+}
+
+.spelling-animation__hand--q,
+.spelling-animation__hand--p {
+  transform: rotate(180deg);
+}
+
+.spelling-animation__hand--r .spelling-animation__finger--index {
+  height: 73px;
+  transform: rotate(-8deg);
+}
+
+.spelling-animation__hand--r .spelling-animation__finger--middle {
+  height: 77px;
+  transform: rotate(8deg);
+}
+
+.spelling-animation__hand--u .spelling-animation__finger--index,
+.spelling-animation__hand--u .spelling-animation__finger--middle,
+.spelling-animation__hand--v .spelling-animation__finger--index,
+.spelling-animation__hand--v .spelling-animation__finger--middle {
+  height: 73px;
+}
+
+.spelling-animation__hand--w .spelling-animation__finger--pinky {
+  height: 34px;
+  transform: rotate(48deg);
+}
+
+.spelling-animation__hand--x .spelling-animation__finger--index {
+  height: 44px;
+  transform: rotate(24deg);
+}
+
+.spelling-animation__hand--z .spelling-animation__finger--index {
+  height: 73px;
+}
+
+.spelling-animation__hand--z {
+  animation: spelling-letter-z 850ms ease-in-out infinite alternate;
+}
+
+.spelling-animation__current {
+  position: absolute;
+  right: 14px;
+  bottom: 12px;
+  z-index: 4;
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border: 2px solid #fff;
+  border-radius: 12px;
+  background: #237144;
+  box-shadow: 0 4px 12px rgb(29 67 42 / 18%);
+  color: #fff;
+  font-size: 1.5rem;
+  font-weight: 900;
+  animation: spelling-letter-pop 500ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.spelling-animation__letters {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 7px;
+  margin-top: 16px;
+}
+
+.spelling-animation__letter {
+  display: grid;
+  width: 36px;
+  height: 40px;
+  place-items: center;
+  border: 1px solid #c8dac1;
+  border-radius: 9px;
+  background: #fff;
+  color: #52705a;
+  font-weight: 800;
+  transition: transform 220ms ease, background 220ms ease, color 220ms ease;
+}
+
+.spelling-animation__letter.is-active {
+  transform: translateY(-4px);
+  border-color: #237144;
+  background: #237144;
+  color: #fff;
+}
+
+@keyframes spelling-letter-pop {
+  from {
+    opacity: 0;
+    transform: translateY(7px) scale(0.8);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes spelling-letter-j {
+  from {
+    transform: translateX(-8px) rotate(-8deg);
+  }
+
+  to {
+    transform: translateX(8px) rotate(8deg);
+  }
+}
+
+@keyframes spelling-letter-z {
+  from {
+    transform: translate(-5px, 4px) rotate(-8deg);
+  }
+
+  50% {
+    transform: translate(5px, -2px) rotate(8deg);
+  }
+
+  to {
+    transform: translate(-5px, -8px) rotate(-8deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spelling-animation *,
+  .spelling-animation *::before,
+  .spelling-animation *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

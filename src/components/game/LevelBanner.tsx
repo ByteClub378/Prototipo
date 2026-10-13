@@ -1,5 +1,5 @@
 import GameCard from "../ui/GameCard";
-import InstructionAudio from "./InstructionAudio";
+import { NarrationButton } from "../NarrationButton";
 import "./LevelBanner.css";
 
 interface LevelBannerLevel {
@@ -15,8 +15,7 @@ interface LevelBannerProps {
   onStart: () => void;
   buttonLabel?: string;
   disabled?: boolean;
-  narration?: string;
-  audioSrc?: string;
+  audios?: string[];
 }
 
 export default function LevelBanner({
@@ -25,8 +24,7 @@ export default function LevelBanner({
   onStart,
   buttonLabel = "Começar",
   disabled = false,
-  narration,
-  audioSrc,
+  audios,
 }: LevelBannerProps) {
   return (
     <GameCard className="level-banner">
@@ -44,10 +42,7 @@ export default function LevelBanner({
         {level.instruction}
       </p>
 
-      <InstructionAudio
-        text={narration ?? level.instruction}
-        audioSrc={audioSrc}
-      />
+      {audios && <NarrationButton audios={audios} />}
 
       <button
         className="level-banner__button"

@@ -7,7 +7,7 @@ import {
 } from "react";
 import { useNavigate } from "react-router-dom";
 import GameCard from "../../../components/ui/GameCard";
-import InstructionAudio from "../../../components/game/InstructionAudio";
+import { NarrationButton } from "../../../components/NarrationButton";
 import MissionTimer from "../../../components/game/MissionTimer";
 import ScoreDisplay from "../../../components/game/ScoreDisplay";
 import { useScore } from "../../../context/ScoreContext";
@@ -28,6 +28,7 @@ import {
   playTimeoutSound,
 } from "../../../utils/sound";
 import { logEvent } from "../../../utils/telemetry";
+import { narrations } from "../../../data/narrations";
 import centroOesteMap from "../../../assets/centro-oeste/mapa-centro-oeste.jpg";
 import "./CenterWestPhase.css";
 
@@ -328,10 +329,7 @@ function CenterWestPhase() {
             Cada missão tem três corações e 30 segundos por tentativa. Os alvos
             aparecem em ordem diferente a cada partida.
           </p>
-          <InstructionAudio
-            text="Olá, explorador do Centro-Oeste! Observe o mapa e encontre cada alvo indicado. Você tem três corações e 30 segundos para cada missão. Quando tiver certeza, toque no ponto correto e siga a dica para descobrir mais."
-            audioSrc="/audio/centro-oeste.mp3"
-          />
+          <NarrationButton audios={narrations.centroOeste} />
           {feedback && <p className="centro-oeste-phase__error">{feedback}</p>}
           <button
             type="button"

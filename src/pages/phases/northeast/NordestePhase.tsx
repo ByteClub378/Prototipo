@@ -17,6 +17,7 @@ import { useSession } from "../../../context/SessionContext";
 import { POINTS_PER_CORRECT_ANSWER, POINTS_PER_INCORRECT_ANSWER } from "../../../data/scoring";
 import { shuffle } from "../../../utils/random";
 import { useGameFeedback } from "../../../hooks/useGameFeedback";
+import { narrations } from "../../../data/narrations";
 import "./NordestePhase.css";
 
 const QUESTION_MAP = new Map(NORDESTE_QUESTIONS.map((q) => [q.id, q]));
@@ -422,8 +423,7 @@ function NordestePhase() {
           onStart={handleStartLevel} 
           buttonLabel={status === "loading" ? "Conectando..." : status === "error" ? "Tentar conectar novamente" : "Começar"}
           disabled={status === "loading" || isStarting}
-          narration="Olá, explorador! No Nordeste, leia a pergunta e observe as quatro alternativas. Toque na resposta que você considera correta. Depois, leia a curiosidade para aprender mais. Ouça as instruções antes de apertar Começar!"
-          audioSrc="/audio/nordeste.mp3"
+          audios={narrations.nordeste}
         />
       ) : levelComplete ? (
         <GameCard className="nordeste-phase__complete">
