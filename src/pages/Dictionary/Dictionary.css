@@ -247,6 +247,17 @@
   line-height: 1.45;
 }
 
+.dictionary-quiz blockquote {
+  margin: 0;
+  padding: 0.8rem;
+  border-left: 4px solid #e8bf4c;
+  border-radius: 0.5rem;
+  background: #fff;
+  color: var(--dictionary-ink);
+  font-weight: 700;
+  line-height: 1.45;
+}
+
 .dictionary-quiz__options {
   display: grid;
   gap: 0.5rem;
