@@ -6,6 +6,7 @@ describe("catálogo do jogo", () => {
     expect(LEVELS.filter((level) => level.regionId === "norte")).toHaveLength(3);
     expect(LEVELS.filter((level) => level.regionId === "nordeste")).toHaveLength(3);
     expect(LEVELS.filter((level) => level.regionId === "centro-oeste")).toHaveLength(1);
+    expect(LEVELS.filter((level) => level.regionId === "sul")).toHaveLength(3);
   });
 
   it("mantém quatro perguntas em cada rodada do Nordeste", () => {
@@ -30,10 +31,11 @@ describe("catálogo do jogo", () => {
   });
 
   it("exige 60% nas rodadas de Norte e Nordeste", () => {
-    for (const level of LEVELS.filter((item) => item.regionId !== "centro-oeste")) {
+    for (const level of LEVELS.filter((item) => ["norte", "nordeste"].includes(item.regionId))) {
       expect(level.minScore).toBe(Math.ceil(level.maxScore * 0.6));
     }
     expect(LEVELS.find((level) => level.regionId === "centro-oeste")?.minScore).toBe(0);
+    expect(LEVELS.filter((level) => level.regionId === "sul").every((level) => level.minScore === 700)).toBe(true);
   });
 
   it("começa somente com a primeira rodada do Norte liberada", () => {
@@ -50,6 +52,7 @@ describe("catálogo do jogo", () => {
       "nordeste",
       "centro-oeste",
       "sudeste",
+      "sul",
     ]);
   });
 
@@ -69,5 +72,35 @@ describe("catálogo do jogo", () => {
       regionId: "sudeste",
       criterionType: "region_complete",
     });
+  });
+
+  it("cadastra as três paradas do Sul com sete diferenças cada", () => {
+    expect(LEVELS.filter((level) => level.regionId === "sul")).toEqual([
+      {
+        regionId: "sul",
+        levelNumber: 1,
+        name: "Sete erros: Paraná",
+        questionCount: 7,
+        maxScore: 700,
+        minScore: 700,
+      },
+      {
+        regionId: "sul",
+        levelNumber: 2,
+        name: "Sete erros: Santa Catarina",
+        questionCount: 7,
+        maxScore: 700,
+        minScore: 700,
+      },
+      {
+        regionId: "sul",
+        levelNumber: 3,
+        name: "Sete erros: Rio Grande do Sul",
+        questionCount: 7,
+        maxScore: 700,
+        minScore: 700,
+      },
+    ]);
+    expect(MEDALS.find((medal) => medal.id === "sul-completo")?.regionId).toBe("sul");
   });
 });

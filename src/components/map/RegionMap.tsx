@@ -19,6 +19,7 @@ const REGION_ROUTES: Partial<Record<string, string>> = {
   nordeste: "/missao/nordeste",
   "centro-oeste": "/missao/centro-oeste",
   sudeste: "/missao/sudeste",
+  sul: "/missao/sul",
 };
 
 function RegionMap() {

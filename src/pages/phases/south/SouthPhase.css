@@ -1,0 +1,281 @@
+.south-game {
+  --ink: #25352c;
+  --green: #286b4b;
+  --paper: #fffdf6;
+  --line: #e5e2d6;
+  --muted: #667368;
+
+  width: min(100%, 1240px);
+  margin: 0 auto;
+  padding: clamp(1rem, 3vw, 2rem);
+  color: var(--ink);
+}
+
+.south-game *,
+.south-game *::before,
+.south-game *::after {
+  box-sizing: border-box;
+}
+
+.south-game button {
+  font: inherit;
+}
+
+.south-game__header,
+.south-game__stage-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.south-game__header {
+  padding-bottom: 1.2rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.south-game__logo {
+  display: block;
+  width: clamp(110px, 16vw, 170px);
+  max-height: 64px;
+  margin-left: auto;
+  object-fit: contain;
+}
+
+.south-game__header h1 {
+  margin: 0.25rem 0;
+  font-size: clamp(1.8rem, 4vw, 2.7rem);
+  line-height: 1.1;
+}
+
+.south-game__header p {
+  margin: 0.4rem 0 0.8rem;
+  color: var(--muted);
+}
+
+.south-game__eyebrow {
+  color: var(--green);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.09em;
+}
+
+.south-game__card {
+  margin-top: 1.4rem;
+  padding: clamp(1rem, 2.5vw, 1.7rem);
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  background: var(--paper);
+  box-shadow: 0 14px 34px #283b2d12;
+}
+
+.south-game__intro,
+.south-game__result {
+  text-align: center;
+}
+
+.south-game__big-icon {
+  display: block;
+  margin: 0.2rem 0 0.6rem;
+  font-size: clamp(3rem, 8vw, 4.5rem);
+}
+
+.south-game__intro h2,
+.south-game__result h2 {
+  margin: 0.4rem 0;
+  font-size: clamp(1.4rem, 3vw, 2rem);
+}
+
+.south-game__intro p,
+.south-game__result p {
+  max-width: 680px;
+  margin: 0.7rem auto 1.2rem;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.south-game__stops {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.65rem;
+  margin: 1.2rem 0;
+}
+
+.south-game__stops span {
+  padding: 0.65rem 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #f5f6eb;
+  font-weight: 800;
+}
+
+.south-game__button {
+  min-height: 48px;
+  padding: 0.8rem 1.2rem;
+  border: 0;
+  border-radius: 14px;
+  background: var(--green);
+  color: white;
+  font-weight: 900 !important;
+  cursor: pointer;
+}
+
+.south-game__button:hover {
+  filter: brightness(1.08);
+}
+
+.south-game__button:focus-visible,
+.south-game__hotspot:focus-visible {
+  outline: 3px solid #3985bf;
+  outline-offset: 3px;
+}
+
+.south-game__stage-heading h2 {
+  margin: 0.25rem 0 0;
+  font-size: clamp(1.2rem, 2.7vw, 1.7rem);
+}
+
+.south-game__counter {
+  flex: 0 0 auto;
+  padding: 0.6rem 0.85rem;
+  border-radius: 999px;
+  background: #fff2c9;
+  color: #634d16;
+}
+
+.south-game__progress {
+  height: 12px;
+  margin: 1rem 0 1.3rem;
+  overflow: hidden;
+  border-radius: 99px;
+  background: #e9eadf;
+}
+
+.south-game__progress span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #318257, #a6c957);
+  transition: width 220ms ease;
+}
+
+.south-game__scenes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.south-game__scenes > div {
+  min-width: 0;
+}
+
+.south-game__scene-label {
+  display: block;
+  margin: 0 0 0.45rem 0.2rem;
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+
+.south-game__scene {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  border: 1px solid #dce4d4;
+  border-radius: 18px;
+  background: #eaf2e7;
+  box-shadow: 0 8px 20px #29432d14;
+}
+
+.south-game__scene img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.south-game__hotspot {
+  position: absolute;
+  display: grid;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  place-items: center;
+  transform: translate(-50%, -50%);
+  cursor: pointer;
+  border: 2px solid transparent;
+  border-radius: 50%;
+  background: transparent;
+  color: white;
+}
+
+.south-game__hotspot:hover,
+.south-game__hotspot:focus-visible {
+  border-color: #ffd04e;
+  background: #fff5;
+  outline: none;
+}
+
+.south-game__hotspot.is-found {
+  border-color: #17633c;
+  background: #2b8757bb;
+  font-size: 18px;
+  font-weight: 900;
+  cursor: default;
+}
+
+.south-game__hint {
+  min-height: 46px;
+  margin: 1rem 0 0;
+  padding: 0.75rem 1rem;
+  border-radius: 14px;
+  background: #f1f5e9;
+  color: #405944;
+  font-weight: 750;
+  line-height: 1.45;
+}
+
+.south-game__message {
+  color: #9b3d32 !important;
+  font-weight: 700;
+}
+
+@media (max-width: 760px) {
+  .south-game__stage-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .south-game__header {
+    flex-wrap: wrap;
+  }
+
+  .south-game__logo {
+    margin-left: 0;
+  }
+
+  .south-game__scenes {
+    grid-template-columns: 1fr;
+  }
+
+  .south-game__hotspot {
+    width: 36px;
+    height: 36px;
+  }
+
+  .south-game__counter {
+    align-self: flex-start;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .south-game *,
+  .south-game *::before,
+  .south-game *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
