@@ -15,6 +15,9 @@ export const LEVELS = [
   { regionId: "nordeste", levelNumber: 3, name: "Desafio relâmpago", questionCount: 4, maxScore: 400, minScore: 240 },
   { regionId: "centro-oeste", levelNumber: 1, name: "Guardiões do Centro-Oeste", questionCount: 8, maxScore: 800, minScore: 0 },
   { regionId: "sudeste", levelNumber: 1, name: "Monte o mapa do Sudeste", questionCount: 8, maxScore: 1000, minScore: 600 },
+  { regionId: "sul", levelNumber: 1, name: "Sete erros: Paraná", questionCount: 7, maxScore: 700, minScore: 700 },
+  { regionId: "sul", levelNumber: 2, name: "Sete erros: Santa Catarina", questionCount: 7, maxScore: 700, minScore: 700 },
+  { regionId: "sul", levelNumber: 3, name: "Sete erros: Rio Grande do Sul", questionCount: 7, maxScore: 700, minScore: 700 },
 ];
 
 export const MEDALS = [
@@ -22,6 +25,7 @@ export const MEDALS = [
   { id: "nordeste-completo", name: "Medalha do Nordeste", description: "Conclua todos os níveis da região Nordeste.", regionId: "nordeste", criterionType: "region_complete" },
   { id: "centro-oeste-completo", name: "Medalha do Centro-Oeste", description: "Encontre as oito descobertas do Centro-Oeste.", regionId: "centro-oeste", criterionType: "region_complete" },
   { id: "sudeste-completo", name: "Medalha do Sudeste", description: "Responda aos desafios e encaixe os quatro estados do Sudeste.", regionId: "sudeste", criterionType: "region_complete" },
+  { id: "sul-completo", name: "Medalha do Sul", description: "Encontre as diferenças nas três paradas da região Sul.", regionId: "sul", criterionType: "region_complete" },
 ];
 
 export const PASSING_PERCENT = 60;
