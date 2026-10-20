@@ -151,7 +151,33 @@ export class GameRepository {
           }
         }
       }
-      const attemptData = { ...input, playerId, levelId: requestedLevelId, attemptNumber, status: "completed", passed, minScore, maxScore: level.maxScore, awardedMedals, startedAt: now, completedAt: now };
+      const answered = input.correctAnswers + input.incorrectAnswers;
+      const topicStats = Object.fromEntries((input.topicResults ?? []).map((item) => [item.topicId, {
+        correctAnswers: item.correctAnswers,
+        incorrectAnswers: item.incorrectAnswers,
+      }]));
+      const { topicResults: _topicResults, ...persistedInput } = input;
+      const attemptData = {
+        ...persistedInput,
+        playerId,
+        levelId: requestedLevelId,
+        attemptNumber,
+        status: "completed",
+        passed,
+        minScore,
+        maxScore: level.maxScore,
+        scorePercent: level.maxScore > 0 ? Math.round(input.score * 10_000 / level.maxScore) / 100 : 0,
+        accuracyPercent: answered > 0 ? Math.round(input.correctAnswers * 10_000 / answered) / 100 : 0,
+        scoreBand: input.score * 100 <= level.maxScore * 20 ? "0-20"
+          : input.score * 100 <= level.maxScore * 40 ? "21-40"
+            : input.score * 100 <= level.maxScore * 60 ? "41-60"
+              : input.score * 100 <= level.maxScore * 80 ? "61-80" : "81-100",
+        isRepeatAttempt: attemptNumber > 1,
+        topicStats,
+        awardedMedals,
+        startedAt: now,
+        completedAt: now,
+      };
       if (attempt.exists) transaction.update(attemptRef, attemptData); else transaction.create(attemptRef, attemptData);
       transaction.update(playerRef, {
         levels: progress,

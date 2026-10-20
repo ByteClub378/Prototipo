@@ -19,7 +19,8 @@
     "test:backend": "vitest run backend/src",
     "build:backend": "npm run lint:backend",
     "firebase:seed": "node backend/src/database/seed.js",
-    "db:cleanup": "node backend/src/database/cleanup.js"
+    "db:cleanup": "node backend/src/database/cleanup.js",
+    "admin:hash-password": "node backend/scripts/hash-admin-password.js"
   },
   "dependencies": {
     "canvas-confetti": "^1.9.4",

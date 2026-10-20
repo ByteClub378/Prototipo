@@ -1,4 +1,11 @@
 import { z } from "zod";
+import { TOPICS } from "../database/catalog.js";
+const topicIds = TOPICS.map((topic) => topic.id);
+const topicResultSchema = z.object({
+    topicId: z.enum(topicIds),
+    correctAnswers: z.number().int().min(0).max(10_000),
+    incorrectAnswers: z.number().int().min(0).max(10_000),
+}).strict();
 export const startAttemptSchema = z.object({
     attemptId: z.string().uuid(),
     regionId: z.enum(["norte", "nordeste", "centro-oeste", "sudeste", "sul"]),
@@ -12,6 +19,7 @@ export const completeAttemptSchema = z.object({
     incorrectAnswers: z.number().int().min(0).max(10_000),
     missionCorrectAnswers: z.number().int().min(0).max(10_000).optional(),
     missionIncorrectAnswers: z.number().int().min(0).max(10_000).optional(),
+    topicResults: z.array(topicResultSchema).max(topicIds.length).optional(),
     durationSeconds: z.number().int().min(1).max(86_400),
 }).strict().refine((data) => data.correctAnswers + data.incorrectAnswers > 0, {
     message: "A tentativa deve conter ao menos uma resposta.",
@@ -19,6 +27,13 @@ export const completeAttemptSchema = z.object({
     (data.missionCorrectAnswers === undefined) ===
     (data.missionIncorrectAnswers === undefined), {
     message: "Os totais da missão devem ser enviados juntos.",
+}).refine((data) => !data.topicResults || new Set(data.topicResults.map((item) => item.topicId)).size === data.topicResults.length, {
+    message: "Cada assunto deve aparecer no máximo uma vez.",
+}).refine((data) => !data.topicResults || (
+    data.topicResults.reduce((sum, item) => sum + item.correctAnswers, 0) === data.correctAnswers &&
+    data.topicResults.reduce((sum, item) => sum + item.incorrectAnswers, 0) === data.incorrectAnswers
+), {
+    message: "Os resultados por assunto devem corresponder aos totais da tentativa.",
 });
 export class GameService {
     repository;

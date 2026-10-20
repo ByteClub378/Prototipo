@@ -1,17 +1,17 @@
 import { describe, expect, it, vi } from "vitest";
-import { AdminService } from "./admin.service.js";
+import { AdminService, statsFilterSchema, trendFilterSchema } from "./admin.service.js";
 
 describe("estatísticas administrativas", () => {
   it("calcula visão geral e reutiliza o cache", async () => {
     const repository = { getOverview: vi.fn().mockResolvedValue({
-      totalPlayers: 10, playersWhoPlayed: 8, totalAttempts: 20, passedAttempts: 15,
+      totalPlayers: 10, playersWhoPlayed: 8, activePlayers: 7, totalAttempts: 20, passedAttempts: 15,
       averageDurationSeconds: 42.126, totalCorrectAnswers: 75, totalIncorrectAnswers: 25,
     }) };
     const service = new AdminService(repository, 300);
     const first = await service.getOverview();
     const second = await service.getOverview();
-    expect(first.players).toEqual({ total: 10, whoPlayed: 8, whoOnlyOpened: 2 });
-    expect(first.attempts).toMatchObject({ total: 20, passRate: 75, accuracyRate: 75, averageDurationSeconds: 42.13 });
+    expect(first.players).toEqual({ total: 10, whoPlayed: 8, activeInPeriod: 7, whoOnlyOpened: 2 });
+    expect(first.attempts).toMatchObject({ total: 20, passRate: 75, accuracyRate: 75, performanceIndex: 75, averageDurationSeconds: 42.13 });
     expect(second).toBe(first);
     expect(repository.getOverview).toHaveBeenCalledTimes(1);
   });
@@ -25,5 +25,21 @@ describe("estatísticas administrativas", () => {
     expect(result.rankings.mostPlayed[0].name).toBe("A");
     expect(result.rankings.bestPerformance[0].name).toBe("B");
     expect(result.levels[1]).toMatchObject({ passRate: 100, averageScorePercent: 87.5, accuracyRate: 87.5 });
+  });
+
+  it("valida períodos gerais e limita tendências", () => {
+    expect(statsFilterSchema.parse({})).toMatchObject({ from: undefined, to: undefined });
+    expect(trendFilterSchema.parse({})).toMatchObject({ from: expect.any(String), to: expect.any(String) });
+    expect(() => trendFilterSchema.parse({ from: "2026-01-01", to: "2026-03-01" })).toThrow();
+  });
+
+  it("calcula e ordena dificuldade", async () => {
+    const repository = { getLevels: vi.fn().mockResolvedValue([
+      { regionId: "norte", levelNumber: 1, name: "Fácil", maxScore: 400, totalAttempts: 10, passedAttempts: 9, averageScore: 350, averageDurationSeconds: 20, totalCorrectAnswers: 36, totalIncorrectAnswers: 4 },
+      { regionId: "norte", levelNumber: 2, name: "Difícil", maxScore: 400, totalAttempts: 10, passedAttempts: 3, averageScore: 180, averageDurationSeconds: 50, totalCorrectAnswers: 18, totalIncorrectAnswers: 22 },
+    ]) };
+    const result = await new AdminService(repository, 300).getDifficulties({});
+    expect(result.levels[0].name).toBe("Difícil");
+    expect(result.levels[0].difficultyIndex).toBeGreaterThan(result.levels[1].difficultyIndex);
   });
 });

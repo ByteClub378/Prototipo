@@ -29,6 +29,10 @@ API padrão: `http://localhost:3000`. Prefixo: `/api/v1`. `npm start` valida o F
 | `ADMIN_API_KEY` | Chave Bearer administrativa, mínimo 32 caracteres | desabilita endpoints se ausente |
 | `ADMIN_CACHE_TTL_SECONDS` | Cache das estatísticas, entre 30 e 3600 segundos | `300` |
 | `ADMIN_ORIGIN` | Origem adicional permitida para um painel separado | opcional |
+| `ADMIN_USERNAME` | Usuário do login administrativo | opcional até configurar o painel |
+| `ADMIN_PASSWORD_HASH` | Hash `scrypt` da senha administrativa | opcional até configurar o painel |
+| `ADMIN_COOKIE_NAME` | Cookie da sessão administrativa | `adminSession` |
+| `ADMIN_SESSION_TTL_HOURS` | Duração da sessão administrativa | `8` |
 | `FIREBASE_PROJECT_ID` | ID do projeto Firebase | obrigatório |
 | `FIREBASE_CLIENT_EMAIL` | E-mail da conta de serviço | opcional com ADC |
 | `FIREBASE_PRIVATE_KEY` | Chave privada com `\n` escapado | opcional com ADC |
@@ -99,6 +103,21 @@ possui `persisted: false`.
 }
 ```
 
+Opcionalmente, o frontend pode enviar `topicResults` com totais agregados por
+assunto. A soma deve corresponder aos acertos e erros da tentativa:
+
+```json
+{
+  "topicResults": [
+    { "topicId": "fauna", "correctAnswers": 3, "incorrectAnswers": 1 },
+    { "topicId": "biomas", "correctAnswers": 2, "incorrectAnswers": 0 }
+  ]
+}
+```
+
+Assuntos aceitos: `fauna`, `flora`, `biomas`, `clima`, `estados-capitais`,
+`cultura`, `culinaria`, `festas-populares`, `historia` e `turismo`.
+
 A conclusão é o único ponto de persistência da partida: cria uma tentativa e
 atualiza o documento do jogador na mesma transação. A nota mínima é 60% de
 `maxScore`. Uma reprovação registra a tentativa e a melhor pontuação, mas não
@@ -135,7 +154,8 @@ idempotente, contém `passed`, `minScore`, `maxScore`, `revision` e
 
 ### Estatísticas administrativas
 
-Todas as rotas abaixo exigem:
+As rotas aceitam uma sessão administrativa HttpOnly ou, temporariamente, a
+chave técnica:
 
 ```http
 Authorization: Bearer SUA_ADMIN_API_KEY
@@ -146,6 +166,24 @@ Authorization: Bearer SUA_ADMIN_API_KEY
 - `GET /api/v1/admin/stats/levels` — métricas por fase e rankings das fases mais
   jogadas e com melhor desempenho.
 - `GET /api/v1/admin/stats/regions` — métricas e rankings consolidados por região.
+- `GET /api/v1/admin/stats/trends` — série diária para gráficos, limitada a 31 dias.
+- `GET /api/v1/admin/stats/topics` — desempenho por matéria ou assunto.
+- `GET /api/v1/admin/stats/difficulties` — ranking de dificuldade por fase.
+- `GET /api/v1/admin/stats/learning-evolution` — comparação entre primeiras
+  tentativas e repetições.
+- `GET /api/v1/admin/stats/score-distribution` — faixas de pontuação normalizada.
+- `GET /api/v1/admin/stats/engagement` — atividade, repetição e conclusão regional.
+
+Todos aceitam `from=YYYY-MM-DD`, `to=YYYY-MM-DD` e `regionId`. Sem datas, os
+endpoints gerais consideram todo o histórico. O período máximo é 366 dias. Em
+`trends`, o padrão é 14 dias e o máximo é 31 dias.
+
+O índice de desempenho é `70% × accuracyRate + 30% × passRate`. O índice de
+dificuldade combina 50% de reprovação, 35% de erros e 15% de duração relativa.
+A evolução compara grupos de primeiras tentativas e repetições, não indivíduos.
+`learning-evolution`, `score-distribution` e `topics` consideram somente
+tentativas que possuam os novos campos analíticos; dados antigos continuam nos
+totais gerais, mas não são inferidos artificialmente nessas métricas.
 
 Exemplo resumido de `overview`:
 
@@ -178,9 +216,29 @@ tentativa é concluída. Jogadores antigos que não concluírem outra tentativa 
 esta versão não são retroativamente marcados. Já as métricas baseadas em
 `attempts` consideram os documentos existentes no momento da consulta.
 
-`ADMIN_API_KEY` é uma proteção inicial de servidor. Não coloque essa chave em
-`VITE_*`, no bundle público ou no repositório. Um painel web definitivo deverá
-usar login administrativo e uma sessão HttpOnly própria.
+`ADMIN_API_KEY` permanece como acesso técnico. Não coloque essa chave em
+`VITE_*`, no bundle público ou no repositório. O painel web deve usar o login e
+o cookie administrativo.
+
+### Login administrativo
+
+- `POST /api/v1/admin/auth/login` com `{ "username": "...", "password": "..." }`.
+- `GET /api/v1/admin/auth/session` consulta a sessão atual.
+- `DELETE /api/v1/admin/auth/session` encerra e revoga a sessão.
+
+O login permite cinco falhas a cada 15 minutos. A sessão usa token opaco em
+cookie HttpOnly e um documento `adminSessions`, permitindo revogação imediata.
+
+Para gerar o hash da senha:
+
+```powershell
+$env:ADMIN_PASSWORD="escolha-uma-senha-forte"
+npm run admin:hash-password
+Remove-Item Env:ADMIN_PASSWORD
+```
+
+Copie a saída para `ADMIN_PASSWORD_HASH` e configure `ADMIN_USERNAME`. Nunca
+grave a senha em texto puro no `.env`.
 
 ### Exclusão
 
@@ -194,13 +252,14 @@ usar login administrativo e uma sessão HttpOnly própria.
 | 400 | `VALIDATION_ERROR`, `SCORE_OUT_OF_RANGE`, `INVALID_ATTEMPT_ID` |
 | 401 | `SESSION_INVALID` |
 | 401 | `ADMIN_UNAUTHORIZED` |
+| 401 | `ADMIN_INVALID_CREDENTIALS` |
 | 403 | `LEVEL_LOCKED` |
 | 403 | `ORIGIN_NOT_ALLOWED` |
 | 404 | `LEVEL_NOT_FOUND` |
 | 409 | `ATTEMPT_ID_CONFLICT`, `ATTEMPT_ALREADY_COMPLETED` |
 | 429 | Limite de requisições excedido |
 | 500 | `INTERNAL_ERROR` |
-| 503 | `ADMIN_NOT_CONFIGURED` |
+| 503 | `ADMIN_LOGIN_NOT_CONFIGURED` |
 
 ## Firestore e manutenção
 
@@ -209,7 +268,7 @@ npm run firebase:seed
 npm run db:cleanup
 ```
 
-O seed cria ou atualiza `regions`, `levels` e `medals`. A aplicação usa `players`
+O seed cria ou atualiza `regions`, `levels`, `medals` e `topics`. A aplicação usa `players`
 e `attempts`; sessões assinadas não geram documentos. Por ser um banco sem
 esquema, não existem migrations SQL. A limpeza remove jogadores inativos e suas
 tentativas. O catálogo atual contém cinco regiões, três níveis do Norte, três
@@ -219,8 +278,8 @@ uma migração separada.
 
 As regras em `backend/firebase/firestore.rules` negam todo acesso direto de
 clientes. Elas devem ser publicadas no projeto Firebase; o Admin SDK do backend
-continua autorizado pela conta de serviço. As consultas atuais utilizam índices
-de campo único e um índice composto para aprovação por fase.
+continua autorizado pela conta de serviço. As consultas administrativas usam os
+índices compostos versionados em `backend/firebase/firestore.indexes.json`.
 
 Com o Firebase CLI autenticado, publique regras e índices a partir da raiz:
 

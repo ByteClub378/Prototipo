@@ -1,23 +1,73 @@
+import { z } from "zod";
 import { env } from "../config/env.js";
 import { REGIONS } from "../database/catalog.js";
+
+const regionIds = REGIONS.map((region) => region.id);
+const datePattern = /^\d{4}-\d{2}-\d{2}$/;
+const dateField = z.string().regex(datePattern, "Use a data no formato YYYY-MM-DD.").optional();
+
+const saoPauloStart = (date) => new Date(`${date}T00:00:00-03:00`);
+const dayString = (date) => new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit", day: "2-digit" }).format(date);
+const addDays = (date, days) => new Date(date.getTime() + days * 86_400_000);
+
+const buildFilters = (input, defaultDays, maxDays) => {
+  if (!input.from && !input.to && !defaultDays) {
+    return { from: undefined, to: undefined, fromDate: undefined, toExclusiveDate: undefined, regionId: input.regionId };
+  }
+  const today = dayString(new Date());
+  const to = input.to ?? today;
+  const toExclusiveDate = addDays(saoPauloStart(to), 1);
+  const from = input.from ?? (defaultDays ? dayString(addDays(toExclusiveDate, -defaultDays)) : undefined);
+  const fromDate = from ? saoPauloStart(from) : undefined;
+  if (fromDate && (Number.isNaN(fromDate.getTime()) || fromDate >= toExclusiveDate)) throw new Error("DATE_RANGE_INVALID");
+  if (fromDate && (toExclusiveDate.getTime() - fromDate.getTime()) / 86_400_000 > maxDays) throw new Error("DATE_RANGE_TOO_LARGE");
+  return { from, to, fromDate, toExclusiveDate, regionId: input.regionId };
+};
+
+const rawFilterSchema = z.object({
+  from: dateField,
+  to: dateField,
+  regionId: z.enum(regionIds).optional(),
+}).strict();
+
+export const statsFilterSchema = rawFilterSchema.transform((input, context) => {
+  try { return buildFilters(input, null, 366); }
+  catch (error) {
+    context.addIssue({ code: "custom", message: error.message === "DATE_RANGE_TOO_LARGE" ? "O período máximo é de 366 dias." : "O período informado é inválido." });
+    return z.NEVER;
+  }
+});
+
+export const trendFilterSchema = rawFilterSchema.transform((input, context) => {
+  try { return buildFilters(input, 14, 31); }
+  catch (error) {
+    context.addIssue({ code: "custom", message: error.message === "DATE_RANGE_TOO_LARGE" ? "Tendências aceitam no máximo 31 dias." : "O período informado é inválido." });
+    return z.NEVER;
+  }
+});
 
 const round = (number, digits = 2) => {
   const factor = 10 ** digits;
   return Math.round((Number(number) || 0) * factor) / factor;
 };
-
 const percentage = (part, total) => total > 0 ? round(part * 100 / total) : 0;
+const performanceIndex = (accuracyRate, passRate) => round(accuracyRate * 0.7 + passRate * 0.3);
+const filterKey = (filters) => JSON.stringify({ from: filters.from, to: filters.to, regionId: filters.regionId });
+const publicPeriod = (filters) => ({ from: filters.from ?? null, to: filters.to ?? null, regionId: filters.regionId ?? null });
 
-const enrichLevel = (level) => {
-  const answered = level.totalCorrectAnswers + level.totalIncorrectAnswers;
+const enrichMetrics = (data) => {
+  const answered = data.totalCorrectAnswers + data.totalIncorrectAnswers;
+  const passRate = percentage(data.passedAttempts, data.totalAttempts);
+  const accuracyRate = percentage(data.totalCorrectAnswers, answered);
   return {
-    ...level,
-    failedAttempts: Math.max(0, level.totalAttempts - level.passedAttempts),
-    passRate: percentage(level.passedAttempts, level.totalAttempts),
-    averageScore: round(level.averageScore),
-    averageScorePercent: percentage(level.averageScore, level.maxScore),
-    averageDurationSeconds: round(level.averageDurationSeconds),
-    accuracyRate: percentage(level.totalCorrectAnswers, answered),
+    ...data,
+    failedAttempts: Math.max(0, data.totalAttempts - data.passedAttempts),
+    passRate,
+    accuracyRate,
+    performanceIndex: performanceIndex(accuracyRate, passRate),
+    averageScore: round(data.averageScore),
+    averageScorePercent: round(data.averageScorePercent || percentage(data.averageScore, data.maxScore)),
+    averageDurationSeconds: round(data.averageDurationSeconds),
   };
 };
 
@@ -31,85 +81,141 @@ export class AdminService {
   cached(key, loader) {
     const current = this.cache.get(key);
     if (current && current.expiresAt > Date.now()) return current.promise;
-    const promise = Promise.resolve().then(loader).catch((error) => {
-      this.cache.delete(key);
-      throw error;
-    });
+    const promise = Promise.resolve().then(loader).catch((error) => { this.cache.delete(key); throw error; });
     this.cache.set(key, { expiresAt: Date.now() + this.cacheTtlMs, promise });
     return promise;
   }
 
-  async getOverview() {
-    return this.cached("overview", async () => {
-      const data = await this.repository.getOverview();
-      const answered = data.totalCorrectAnswers + data.totalIncorrectAnswers;
-      return {
-        generatedAt: new Date().toISOString(),
-        cacheTtlSeconds: this.cacheTtlMs / 1000,
-        players: {
-          total: data.totalPlayers,
-          whoPlayed: data.playersWhoPlayed,
-          whoOnlyOpened: Math.max(0, data.totalPlayers - data.playersWhoPlayed),
-        },
+  envelope(filters, data) {
+    return { generatedAt: new Date().toISOString(), cacheTtlSeconds: this.cacheTtlMs / 1000, period: publicPeriod(filters), ...data };
+  }
+
+  async getOverview(filters = {}) {
+    return this.cached(`overview:${filterKey(filters)}`, async () => {
+      const raw = await this.repository.getOverview(filters);
+      const attempts = enrichMetrics(raw);
+      return this.envelope(filters, {
+        players: { total: raw.totalPlayers, whoPlayed: raw.playersWhoPlayed, activeInPeriod: raw.activePlayers, whoOnlyOpened: Math.max(0, raw.totalPlayers - raw.playersWhoPlayed) },
         attempts: {
-          total: data.totalAttempts,
-          passed: data.passedAttempts,
-          failed: Math.max(0, data.totalAttempts - data.passedAttempts),
-          passRate: percentage(data.passedAttempts, data.totalAttempts),
-          accuracyRate: percentage(data.totalCorrectAnswers, answered),
-          averageDurationSeconds: round(data.averageDurationSeconds),
-          totalCorrectAnswers: data.totalCorrectAnswers,
-          totalIncorrectAnswers: data.totalIncorrectAnswers,
+          total: attempts.totalAttempts, passed: attempts.passedAttempts, failed: attempts.failedAttempts,
+          passRate: attempts.passRate, accuracyRate: attempts.accuracyRate, performanceIndex: attempts.performanceIndex,
+          averageDurationSeconds: attempts.averageDurationSeconds,
+          totalCorrectAnswers: attempts.totalCorrectAnswers, totalIncorrectAnswers: attempts.totalIncorrectAnswers,
         },
-      };
+      });
     });
   }
 
-  async getLevels() {
-    return this.cached("levels", async () => {
-      const levels = (await this.repository.getLevels()).map(enrichLevel);
+  async getLevels(filters = {}) {
+    return this.cached(`levels:${filterKey(filters)}`, async () => {
+      const levels = (await this.repository.getLevels(filters)).map(enrichMetrics);
       const played = levels.filter((level) => level.totalAttempts > 0);
-      return {
-        generatedAt: new Date().toISOString(),
-        cacheTtlSeconds: this.cacheTtlMs / 1000,
-        levels,
-        rankings: {
-          mostPlayed: [...played].sort((a, b) => b.totalAttempts - a.totalAttempts),
-          bestPerformance: [...played].sort((a, b) => b.passRate - a.passRate || b.averageScorePercent - a.averageScorePercent),
-        },
-      };
+      return this.envelope(filters, { levels, rankings: {
+        mostPlayed: [...played].sort((a, b) => b.totalAttempts - a.totalAttempts),
+        bestPerformance: [...played].sort((a, b) => b.performanceIndex - a.performanceIndex),
+        mostDifficult: [...played].sort((a, b) => a.performanceIndex - b.performanceIndex),
+      } });
     });
   }
 
-  async getRegions() {
-    const levelData = await this.getLevels();
-    const regions = REGIONS.map((region) => {
+  async getRegions(filters = {}) {
+    const levelData = await this.getLevels(filters);
+    const regions = REGIONS.filter((region) => !filters.regionId || region.id === filters.regionId).map((region) => {
       const levels = levelData.levels.filter((level) => level.regionId === region.id);
       const totalAttempts = levels.reduce((sum, level) => sum + level.totalAttempts, 0);
       const passedAttempts = levels.reduce((sum, level) => sum + level.passedAttempts, 0);
       const correct = levels.reduce((sum, level) => sum + level.totalCorrectAnswers, 0);
       const incorrect = levels.reduce((sum, level) => sum + level.totalIncorrectAnswers, 0);
-      const weightedScorePercent = levels.reduce((sum, level) => sum + level.averageScorePercent * level.totalAttempts, 0);
-      return {
-        regionId: region.id,
-        name: region.name,
-        totalAttempts,
-        passedAttempts,
-        failedAttempts: Math.max(0, totalAttempts - passedAttempts),
-        passRate: percentage(passedAttempts, totalAttempts),
-        accuracyRate: percentage(correct, correct + incorrect),
-        averageScorePercent: totalAttempts > 0 ? round(weightedScorePercent / totalAttempts) : 0,
-      };
+      const passRate = percentage(passedAttempts, totalAttempts);
+      const accuracyRate = percentage(correct, correct + incorrect);
+      return { regionId: region.id, name: region.name, totalAttempts, passedAttempts, failedAttempts: Math.max(0, totalAttempts - passedAttempts), passRate, accuracyRate, performanceIndex: performanceIndex(accuracyRate, passRate) };
     });
     const played = regions.filter((region) => region.totalAttempts > 0);
-    return {
-      generatedAt: levelData.generatedAt,
-      cacheTtlSeconds: levelData.cacheTtlSeconds,
-      regions,
-      rankings: {
-        mostPlayed: [...played].sort((a, b) => b.totalAttempts - a.totalAttempts),
-        bestPerformance: [...played].sort((a, b) => b.passRate - a.passRate || b.averageScorePercent - a.averageScorePercent),
-      },
-    };
+    return this.envelope(filters, { regions, rankings: {
+      mostPlayed: [...played].sort((a, b) => b.totalAttempts - a.totalAttempts),
+      bestPerformance: [...played].sort((a, b) => b.performanceIndex - a.performanceIndex),
+      mostDifficult: [...played].sort((a, b) => a.performanceIndex - b.performanceIndex),
+    } });
+  }
+
+  async getTrends(filters) {
+    return this.cached(`trends:${filterKey(filters)}`, async () => {
+      const intervals = [];
+      for (let cursor = filters.fromDate; cursor < filters.toExclusiveDate; cursor = addDays(cursor, 1)) {
+        intervals.push({ date: dayString(cursor), fromDate: cursor, toExclusiveDate: addDays(cursor, 1) });
+      }
+      const points = (await this.repository.getTrends(intervals, filters.regionId)).map((point) => ({ date: point.date, ...enrichMetrics(point) }));
+      return this.envelope(filters, { interval: "day", points });
+    });
+  }
+
+  async getTopics(filters = {}) {
+    return this.cached(`topics:${filterKey(filters)}`, async () => {
+      const topics = (await this.repository.getTopics(filters)).map((topic) => {
+        const totalAnswers = topic.correctAnswers + topic.incorrectAnswers;
+        const accuracyRate = percentage(topic.correctAnswers, totalAnswers);
+        return { ...topic, totalAnswers, accuracyRate, difficultyIndex: totalAnswers > 0 ? round(100 - accuracyRate) : null };
+      });
+      const measured = topics.filter((topic) => topic.totalAnswers > 0);
+      return this.envelope(filters, { topics, rankings: {
+        bestDeveloped: [...measured].sort((a, b) => b.accuracyRate - a.accuracyRate),
+        needsReinforcement: [...measured].sort((a, b) => a.accuracyRate - b.accuracyRate),
+      } });
+    });
+  }
+
+  async getDifficulties(filters = {}) {
+    const levelData = await this.getLevels(filters);
+    const maximumDuration = Math.max(0, ...levelData.levels.map((level) => level.averageDurationSeconds));
+    const levels = levelData.levels.filter((level) => level.totalAttempts > 0).map((level) => {
+      const failureRate = 100 - level.passRate;
+      const errorRate = 100 - level.accuracyRate;
+      const timePressure = maximumDuration > 0 ? percentage(level.averageDurationSeconds, maximumDuration) : 0;
+      return { ...level, difficultyIndex: round(failureRate * 0.5 + errorRate * 0.35 + timePressure * 0.15) };
+    }).sort((a, b) => b.difficultyIndex - a.difficultyIndex);
+    return this.envelope(filters, { formula: { failureRate: 0.5, errorRate: 0.35, relativeDuration: 0.15 }, levels });
+  }
+
+  async getLearningEvolution(filters = {}) {
+    return this.cached(`learning:${filterKey(filters)}`, async () => {
+      const raw = await this.repository.getLearningEvolution(filters);
+      const firstAttempts = enrichMetrics(raw.firstAttempts);
+      const repeatAttempts = enrichMetrics(raw.repeatAttempts);
+      return this.envelope(filters, {
+        firstAttempts, repeatAttempts,
+        evolution: {
+          accuracyGain: round(repeatAttempts.accuracyRate - firstAttempts.accuracyRate),
+          passRateGain: round(repeatAttempts.passRate - firstAttempts.passRate),
+          performanceIndexGain: round(repeatAttempts.performanceIndex - firstAttempts.performanceIndex),
+        },
+        methodology: "Compara o grupo de primeiras tentativas com o grupo de repetições; não é uma avaliação individual pareada.",
+      });
+    });
+  }
+
+  async getScoreDistribution(filters = {}) {
+    return this.cached(`scores:${filterKey(filters)}`, async () => {
+      const bands = await this.repository.getScoreDistribution(filters);
+      const total = bands.reduce((sum, band) => sum + band.count, 0);
+      return this.envelope(filters, { totalMeasuredAttempts: total, bands: bands.map((band) => ({ ...band, percentage: percentage(band.count, total) })) });
+    });
+  }
+
+  async getEngagement(filters = {}) {
+    return this.cached(`engagement:${filterKey(filters)}`, async () => {
+      const [overview, learning, regionCompletions] = await Promise.all([
+        this.getOverview(filters), this.getLearningEvolution(filters), this.repository.getRegionCompletions(filters),
+      ]);
+      const first = learning.firstAttempts.totalAttempts;
+      const repeats = learning.repeatAttempts.totalAttempts;
+      return this.envelope(filters, {
+        players: overview.players,
+        attemptsPerActivePlayer: overview.players.activeInPeriod > 0 ? round(overview.attempts.total / overview.players.activeInPeriod) : 0,
+        firstAttempts: first,
+        repeatAttempts: repeats,
+        repeatAttemptRate: percentage(repeats, first + repeats),
+        regionCompletions,
+      });
+    });
   }
 }

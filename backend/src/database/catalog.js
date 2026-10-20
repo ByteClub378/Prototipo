@@ -28,6 +28,19 @@ export const MEDALS = [
   { id: "sul-completo", name: "Medalha do Sul", description: "Encontre as diferenças nas três paradas da região Sul.", regionId: "sul", criterionType: "region_complete" },
 ];
 
+export const TOPICS = [
+  { id: "fauna", name: "Fauna" },
+  { id: "flora", name: "Flora" },
+  { id: "biomas", name: "Biomas" },
+  { id: "clima", name: "Clima" },
+  { id: "estados-capitais", name: "Estados e capitais" },
+  { id: "cultura", name: "Cultura" },
+  { id: "culinaria", name: "Culinária" },
+  { id: "festas-populares", name: "Festas populares" },
+  { id: "historia", name: "História" },
+  { id: "turismo", name: "Pontos turísticos" },
+];
+
 export const PASSING_PERCENT = 60;
 
 export const minimumScore = (level) =>

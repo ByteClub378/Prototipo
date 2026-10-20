@@ -23,6 +23,26 @@ describe("validação de tentativas", () => {
         expect(completeAttemptSchema.parse({ regionId: "norte", levelNumber: 1, score: 80, correctAnswers: 8, incorrectAnswers: 2, durationSeconds: 45 }).score).toBe(80);
   });
 
+  it("aceita resultados por assunto quando fecham com os totais", () => {
+    const parsed = completeAttemptSchema.parse({
+      regionId: "norte", levelNumber: 1, score: 300,
+      correctAnswers: 3, incorrectAnswers: 1, durationSeconds: 30,
+      topicResults: [
+        { topicId: "fauna", correctAnswers: 2, incorrectAnswers: 0 },
+        { topicId: "biomas", correctAnswers: 1, incorrectAnswers: 1 },
+      ],
+    });
+    expect(parsed.topicResults).toHaveLength(2);
+  });
+
+  it("rejeita resultados por assunto inconsistentes", () => {
+    expect(() => completeAttemptSchema.parse({
+      regionId: "norte", levelNumber: 1, score: 300,
+      correctAnswers: 3, incorrectAnswers: 1, durationSeconds: 30,
+      topicResults: [{ topicId: "fauna", correctAnswers: 1, incorrectAnswers: 0 }],
+    })).toThrow();
+  });
+
   it("aceita os totais completos da fase Nordeste", () => {
     const result = completeAttemptSchema.parse({
       regionId: "nordeste",
