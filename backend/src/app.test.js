@@ -1,5 +1,16 @@
 import request from "supertest";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("./services/admin.service.js", () => ({
+  AdminService: class {
+    async getOverview() {
+      return { players: { total: 0 }, attempts: { total: 0 } };
+    }
+  },
+  statsFilterSchema: { parse: (value) => value },
+  trendFilterSchema: { parse: (value) => value },
+}));
+
 import { app } from "./app.js";
 
 describe("API HTTP", () => {
@@ -29,9 +40,9 @@ describe("API HTTP", () => {
     expect(response.body.error.code).toBe("ORIGIN_NOT_ALLOWED");
   });
 
-  it("não expõe estatísticas administrativas sem credencial", async () => {
+  it("expõe estatísticas públicas sem credencial", async () => {
     const response = await request(app).get("/api/v1/admin/stats/overview");
-    expect(response.status).toBe(401);
-    expect(response.body.error.code).toBe("ADMIN_UNAUTHORIZED");
+    expect(response.status).toBe(200);
+    expect(response.body.data.players.total).toBe(0);
   });
 });

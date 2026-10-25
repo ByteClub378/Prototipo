@@ -14,9 +14,4 @@ for (const player of inactive.docs) {
   await writer.close();
   players += 1;
 }
-const expiredSessions = await db.collection("adminSessions").where("expiresAt", "<", Timestamp.now()).get();
-const sessionWriter = db.bulkWriter();
-expiredSessions.docs.forEach((document) => sessionWriter.delete(document.ref));
-await sessionWriter.close();
-
-console.log(`Limpeza concluída: ${players} jogadores inativos, suas tentativas e ${expiredSessions.size} sessões administrativas expiradas removidos.`);
+console.log(`Limpeza concluída: ${players} jogadores inativos e suas tentativas removidos.`);

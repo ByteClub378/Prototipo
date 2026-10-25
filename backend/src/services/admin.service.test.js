@@ -7,7 +7,7 @@ describe("estatísticas administrativas", () => {
       totalPlayers: 10, playersWhoPlayed: 8, activePlayers: 7, totalAttempts: 20, passedAttempts: 15,
       averageDurationSeconds: 42.126, totalCorrectAnswers: 75, totalIncorrectAnswers: 25,
     }) };
-    const service = new AdminService(repository, 300);
+    const service = new AdminService(repository, 300, 1);
     const first = await service.getOverview();
     const second = await service.getOverview();
     expect(first.players).toEqual({ total: 10, whoPlayed: 8, activeInPeriod: 7, whoOnlyOpened: 2 });
@@ -21,7 +21,7 @@ describe("estatísticas administrativas", () => {
       { regionId: "norte", levelNumber: 1, name: "A", maxScore: 400, minScore: 240, totalAttempts: 10, passedAttempts: 5, averageScore: 200, averageDurationSeconds: 30, totalCorrectAnswers: 20, totalIncorrectAnswers: 20 },
       { regionId: "norte", levelNumber: 2, name: "B", maxScore: 400, minScore: 240, totalAttempts: 4, passedAttempts: 4, averageScore: 350, averageDurationSeconds: 25, totalCorrectAnswers: 14, totalIncorrectAnswers: 2 },
     ]) };
-    const result = await new AdminService(repository, 300).getLevels();
+    const result = await new AdminService(repository, 300, 1).getLevels();
     expect(result.rankings.mostPlayed[0].name).toBe("A");
     expect(result.rankings.bestPerformance[0].name).toBe("B");
     expect(result.levels[1]).toMatchObject({ passRate: 100, averageScorePercent: 87.5, accuracyRate: 87.5 });
@@ -38,8 +38,21 @@ describe("estatísticas administrativas", () => {
       { regionId: "norte", levelNumber: 1, name: "Fácil", maxScore: 400, totalAttempts: 10, passedAttempts: 9, averageScore: 350, averageDurationSeconds: 20, totalCorrectAnswers: 36, totalIncorrectAnswers: 4 },
       { regionId: "norte", levelNumber: 2, name: "Difícil", maxScore: 400, totalAttempts: 10, passedAttempts: 3, averageScore: 180, averageDurationSeconds: 50, totalCorrectAnswers: 18, totalIncorrectAnswers: 22 },
     ]) };
-    const result = await new AdminService(repository, 300).getDifficulties({});
+    const result = await new AdminService(repository, 300, 1).getDifficulties({});
     expect(result.levels[0].name).toBe("Difícil");
     expect(result.levels[0].difficultyIndex).toBeGreaterThan(result.levels[1].difficultyIndex);
+  });
+
+  it("oculta fases abaixo da amostra pública mínima", async () => {
+    const repository = { getLevels: vi.fn().mockResolvedValue([
+      { regionId: "norte", levelNumber: 1, name: "Poucos dados", maxScore: 400, totalAttempts: 4, passedAttempts: 4, averageScore: 400, averageDurationSeconds: 20, totalCorrectAnswers: 16, totalIncorrectAnswers: 0 },
+      { regionId: "norte", levelNumber: 2, name: "Amostra suficiente", maxScore: 400, totalAttempts: 5, passedAttempts: 4, averageScore: 320, averageDurationSeconds: 25, totalCorrectAnswers: 16, totalIncorrectAnswers: 4 },
+    ]) };
+
+    const result = await new AdminService(repository, 300, 5).getLevels();
+
+    expect(result.minimumSampleSize).toBe(5);
+    expect(result.suppressedLevelCount).toBe(1);
+    expect(result.levels.map((level) => level.name)).toEqual(["Amostra suficiente"]);
   });
 });

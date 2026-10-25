@@ -26,13 +26,8 @@ API padrão: `http://localhost:3000`. Prefixo: `/api/v1`. `npm start` valida o F
 | `SESSION_TTL_HOURS` | Validade da sessão | `168` |
 | `SESSION_SECRET` | Segredo de assinatura, mínimo 32 caracteres | obrigatório em produção |
 | `PLAYER_RETENTION_DAYS` | Retenção de inativos | `365` |
-| `ADMIN_API_KEY` | Chave Bearer administrativa, mínimo 32 caracteres | desabilita endpoints se ausente |
 | `ADMIN_CACHE_TTL_SECONDS` | Cache das estatísticas, entre 30 e 3600 segundos | `300` |
-| `ADMIN_ORIGIN` | Origem adicional permitida para um painel separado | opcional |
-| `ADMIN_USERNAME` | Usuário do login administrativo | opcional até configurar o painel |
-| `ADMIN_PASSWORD_HASH` | Hash `scrypt` da senha administrativa | opcional até configurar o painel |
-| `ADMIN_COOKIE_NAME` | Cookie da sessão administrativa | `adminSession` |
-| `ADMIN_SESSION_TTL_HOURS` | Duração da sessão administrativa | `8` |
+| `PUBLIC_STATS_MIN_SAMPLE_SIZE` | Amostra mínima para exibir recortes públicos | `5` |
 | `FIREBASE_PROJECT_ID` | ID do projeto Firebase | obrigatório |
 | `FIREBASE_CLIENT_EMAIL` | E-mail da conta de serviço | opcional com ADC |
 | `FIREBASE_PRIVATE_KEY` | Chave privada com `\n` escapado | opcional com ADC |
@@ -73,6 +68,9 @@ Sucesso: `{ "data": ... }`. Erro: `{ "error": { "code": "CODIGO", "message": "De
 
 - `GET /api/v1/me/state` — endpoint preferido: retorna `playerId`, `revision`, progresso e medalhas com apenas uma leitura.
 - `GET /api/v1/me/progress` e `GET /api/v1/me/medals` — compatibilidade; evitá-los em conjunto, pois cada chamada faz uma leitura.
+
+O objeto `progress` inclui `bonus: { status, unlockedAt }`. O status muda de
+`locked` para `unlocked` quando as cinco regiões estiverem concluídas.
 
 ### Tentativas
 
@@ -152,14 +150,16 @@ idempotente, contém `passed`, `minScore`, `maxScore`, `revision` e
 - A primeira conclusão também marca `hasPlayed`, `firstPlayedAt` e incrementa
   `completedAttemptCount` na mesma escrita já feita no documento do jogador.
 
-### Estatísticas administrativas
+### Estatísticas públicas
 
-As rotas aceitam uma sessão administrativa HttpOnly ou, temporariamente, a
-chave técnica:
+As rotas são públicas e estritamente de leitura. Não exigem login, cookie de
+jogador nem chave de API. O rate limit e o cache permanecem ativos para proteger
+a API e reduzir consultas ao Firestore.
 
-```http
-Authorization: Bearer SUA_ADMIN_API_KEY
-```
+Para proteger grupos pequenos, fases, regiões, dias e assuntos abaixo de
+`PUBLIC_STATS_MIN_SAMPLE_SIZE` são omitidos. As respostas informam
+`minimumSampleSize` e contadores `suppressed*`. Evolução e distribuição retornam
+`suppressed: true` quando não atingem a amostra mínima.
 
 - `GET /api/v1/admin/stats/overview` — total de jogadores, jogadores que
   concluíram ao menos uma tentativa, tentativas, aprovação, precisão e duração.
@@ -216,29 +216,8 @@ tentativa é concluída. Jogadores antigos que não concluírem outra tentativa 
 esta versão não são retroativamente marcados. Já as métricas baseadas em
 `attempts` consideram os documentos existentes no momento da consulta.
 
-`ADMIN_API_KEY` permanece como acesso técnico. Não coloque essa chave em
-`VITE_*`, no bundle público ou no repositório. O painel web deve usar o login e
-o cookie administrativo.
-
-### Login administrativo
-
-- `POST /api/v1/admin/auth/login` com `{ "username": "...", "password": "..." }`.
-- `GET /api/v1/admin/auth/session` consulta a sessão atual.
-- `DELETE /api/v1/admin/auth/session` encerra e revoga a sessão.
-
-O login permite cinco falhas a cada 15 minutos. A sessão usa token opaco em
-cookie HttpOnly e um documento `adminSessions`, permitindo revogação imediata.
-
-Para gerar o hash da senha:
-
-```powershell
-$env:ADMIN_PASSWORD="escolha-uma-senha-forte"
-npm run admin:hash-password
-Remove-Item Env:ADMIN_PASSWORD
-```
-
-Copie a saída para `ADMIN_PASSWORD_HASH` e configure `ADMIN_USERNAME`. Nunca
-grave a senha em texto puro no `.env`.
+Apesar do prefixo histórico `/admin/stats`, esses endpoints não concedem
+privilégios administrativos e não executam alterações no banco.
 
 ### Exclusão
 
@@ -251,15 +230,12 @@ grave a senha em texto puro no `.env`.
 |---:|---|
 | 400 | `VALIDATION_ERROR`, `SCORE_OUT_OF_RANGE`, `INVALID_ATTEMPT_ID` |
 | 401 | `SESSION_INVALID` |
-| 401 | `ADMIN_UNAUTHORIZED` |
-| 401 | `ADMIN_INVALID_CREDENTIALS` |
 | 403 | `LEVEL_LOCKED` |
 | 403 | `ORIGIN_NOT_ALLOWED` |
 | 404 | `LEVEL_NOT_FOUND` |
 | 409 | `ATTEMPT_ID_CONFLICT`, `ATTEMPT_ALREADY_COMPLETED` |
 | 429 | Limite de requisições excedido |
 | 500 | `INTERNAL_ERROR` |
-| 503 | `ADMIN_LOGIN_NOT_CONFIGURED` |
 
 ## Firestore e manutenção
 
@@ -272,7 +248,11 @@ O seed cria ou atualiza `regions`, `levels`, `medals` e `topics`. A aplicação 
 e `attempts`; sessões assinadas não geram documentos. Por ser um banco sem
 esquema, não existem migrations SQL. A limpeza remove jogadores inativos e suas
 tentativas. O catálogo atual contém cinco regiões, três níveis do Norte, três
-níveis do Nordeste, uma fase do Centro-Oeste e as respectivas medalhas. Documentos de
+níveis do Nordeste, uma fase do Centro-Oeste, uma do Sudeste, três do Sul e as
+respectivas medalhas. A API também retorna `progress.bonus`: ela fica `unlocked`
+quando as cinco regiões estiverem concluídas. A fase bônus ainda não aceita
+tentativas porque o frontend não definiu perguntas, pontuação ou regra de aprovação.
+Documentos de
 jogadores criados antes da ampliação do catálogo são normalizados pela API sem
 uma migração separada.
 

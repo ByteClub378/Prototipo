@@ -24,6 +24,23 @@ function normalizedProgress(data) {
   return { regions, levels };
 }
 
+export function bonusProgress(regions) {
+  const completed = REGIONS.map((region) => regions[region.id])
+    .filter((progress) => progress?.status === "completed");
+  const unlocked = completed.length === REGIONS.length;
+  const unlockedAt = unlocked
+    ? completed.reduce((latest, progress) => {
+        const value = progress.completedAt;
+        if (!value) return latest;
+        if (!latest) return value;
+        const currentMillis = value.toMillis?.() ?? new Date(value).getTime();
+        const latestMillis = latest.toMillis?.() ?? new Date(latest).getTime();
+        return currentMillis > latestMillis ? value : latest;
+      }, null)
+    : null;
+  return { status: unlocked ? "unlocked" : "locked", unlockedAt: date(unlockedAt) };
+}
+
 export class GameRepository {
   async loadPlayer(playerId) {
     const player = await db.collection("players").doc(playerId).get();
@@ -38,6 +55,7 @@ export class GameRepository {
     return {
       regions: REGIONS.map((region) => ({ regionId: region.id, name: region.name, ...normalized.regions[region.id], unlockedAt: date(normalized.regions[region.id]?.unlockedAt), completedAt: date(normalized.regions[region.id]?.completedAt) })),
       levels: LEVELS.map((level) => ({ ...level, ...normalized.levels[levelId(level.regionId, level.levelNumber)], unlockedAt: date(normalized.levels[levelId(level.regionId, level.levelNumber)]?.unlockedAt), completedAt: date(normalized.levels[levelId(level.regionId, level.levelNumber)]?.completedAt) })),
+      bonus: bonusProgress(normalized.regions),
     };
   }
 
@@ -48,6 +66,7 @@ export class GameRepository {
     const progress = {
       regions: REGIONS.map((region) => ({ regionId: region.id, name: region.name, ...normalized.regions[region.id], unlockedAt: date(normalized.regions[region.id]?.unlockedAt), completedAt: date(normalized.regions[region.id]?.completedAt) })),
       levels: LEVELS.map((level) => ({ ...level, ...normalized.levels[levelId(level.regionId, level.levelNumber)], unlockedAt: date(normalized.levels[levelId(level.regionId, level.levelNumber)]?.unlockedAt), completedAt: date(normalized.levels[levelId(level.regionId, level.levelNumber)]?.completedAt) })),
+      bonus: bonusProgress(normalized.regions),
     };
     const medals = MEDALS.filter((medal) => data.medals?.[medal.id]).map((medal) => ({ ...medal, awardedAt: date(data.medals[medal.id].awardedAt) }));
     return { playerId: data.publicId, revision: data.revision ?? 1, progress, medals };

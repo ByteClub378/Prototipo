@@ -72,9 +72,10 @@ const enrichMetrics = (data) => {
 };
 
 export class AdminService {
-  constructor(repository, cacheTtlSeconds = env.ADMIN_CACHE_TTL_SECONDS) {
+  constructor(repository, cacheTtlSeconds = env.ADMIN_CACHE_TTL_SECONDS, minimumSampleSize = env.PUBLIC_STATS_MIN_SAMPLE_SIZE) {
     this.repository = repository;
     this.cacheTtlMs = cacheTtlSeconds * 1000;
+    this.minimumSampleSize = minimumSampleSize;
     this.cache = new Map();
   }
 
@@ -87,7 +88,7 @@ export class AdminService {
   }
 
   envelope(filters, data) {
-    return { generatedAt: new Date().toISOString(), cacheTtlSeconds: this.cacheTtlMs / 1000, period: publicPeriod(filters), ...data };
+    return { generatedAt: new Date().toISOString(), cacheTtlSeconds: this.cacheTtlMs / 1000, minimumSampleSize: this.minimumSampleSize, period: publicPeriod(filters), ...data };
   }
 
   async getOverview(filters = {}) {
@@ -109,19 +110,19 @@ export class AdminService {
   async getLevels(filters = {}) {
     return this.cached(`levels:${filterKey(filters)}`, async () => {
       const levels = (await this.repository.getLevels(filters)).map(enrichMetrics);
-      const played = levels.filter((level) => level.totalAttempts > 0);
-      return this.envelope(filters, { levels, rankings: {
-        mostPlayed: [...played].sort((a, b) => b.totalAttempts - a.totalAttempts),
-        bestPerformance: [...played].sort((a, b) => b.performanceIndex - a.performanceIndex),
-        mostDifficult: [...played].sort((a, b) => a.performanceIndex - b.performanceIndex),
+      const visible = levels.filter((level) => level.totalAttempts >= this.minimumSampleSize);
+      return this.envelope(filters, { levels: visible, suppressedLevelCount: levels.length - visible.length, rankings: {
+        mostPlayed: [...visible].sort((a, b) => b.totalAttempts - a.totalAttempts),
+        bestPerformance: [...visible].sort((a, b) => b.performanceIndex - a.performanceIndex),
+        mostDifficult: [...visible].sort((a, b) => a.performanceIndex - b.performanceIndex),
       } });
     });
   }
 
   async getRegions(filters = {}) {
-    const levelData = await this.getLevels(filters);
+    const levelData = (await this.repository.getLevels(filters)).map(enrichMetrics);
     const regions = REGIONS.filter((region) => !filters.regionId || region.id === filters.regionId).map((region) => {
-      const levels = levelData.levels.filter((level) => level.regionId === region.id);
+      const levels = levelData.filter((level) => level.regionId === region.id);
       const totalAttempts = levels.reduce((sum, level) => sum + level.totalAttempts, 0);
       const passedAttempts = levels.reduce((sum, level) => sum + level.passedAttempts, 0);
       const correct = levels.reduce((sum, level) => sum + level.totalCorrectAnswers, 0);
@@ -130,11 +131,11 @@ export class AdminService {
       const accuracyRate = percentage(correct, correct + incorrect);
       return { regionId: region.id, name: region.name, totalAttempts, passedAttempts, failedAttempts: Math.max(0, totalAttempts - passedAttempts), passRate, accuracyRate, performanceIndex: performanceIndex(accuracyRate, passRate) };
     });
-    const played = regions.filter((region) => region.totalAttempts > 0);
-    return this.envelope(filters, { regions, rankings: {
-      mostPlayed: [...played].sort((a, b) => b.totalAttempts - a.totalAttempts),
-      bestPerformance: [...played].sort((a, b) => b.performanceIndex - a.performanceIndex),
-      mostDifficult: [...played].sort((a, b) => a.performanceIndex - b.performanceIndex),
+    const visible = regions.filter((region) => region.totalAttempts >= this.minimumSampleSize);
+    return this.envelope(filters, { regions: visible, suppressedRegionCount: regions.length - visible.length, rankings: {
+      mostPlayed: [...visible].sort((a, b) => b.totalAttempts - a.totalAttempts),
+      bestPerformance: [...visible].sort((a, b) => b.performanceIndex - a.performanceIndex),
+      mostDifficult: [...visible].sort((a, b) => a.performanceIndex - b.performanceIndex),
     } });
   }
 
@@ -144,8 +145,9 @@ export class AdminService {
       for (let cursor = filters.fromDate; cursor < filters.toExclusiveDate; cursor = addDays(cursor, 1)) {
         intervals.push({ date: dayString(cursor), fromDate: cursor, toExclusiveDate: addDays(cursor, 1) });
       }
-      const points = (await this.repository.getTrends(intervals, filters.regionId)).map((point) => ({ date: point.date, ...enrichMetrics(point) }));
-      return this.envelope(filters, { interval: "day", points });
+      const allPoints = (await this.repository.getTrends(intervals, filters.regionId)).map((point) => ({ date: point.date, ...enrichMetrics(point) }));
+      const points = allPoints.filter((point) => point.totalAttempts >= this.minimumSampleSize);
+      return this.envelope(filters, { interval: "day", points, suppressedPointCount: allPoints.length - points.length });
     });
   }
 
@@ -156,10 +158,10 @@ export class AdminService {
         const accuracyRate = percentage(topic.correctAnswers, totalAnswers);
         return { ...topic, totalAnswers, accuracyRate, difficultyIndex: totalAnswers > 0 ? round(100 - accuracyRate) : null };
       });
-      const measured = topics.filter((topic) => topic.totalAnswers > 0);
-      return this.envelope(filters, { topics, rankings: {
-        bestDeveloped: [...measured].sort((a, b) => b.accuracyRate - a.accuracyRate),
-        needsReinforcement: [...measured].sort((a, b) => a.accuracyRate - b.accuracyRate),
+      const visible = topics.filter((topic) => topic.totalAnswers >= this.minimumSampleSize);
+      return this.envelope(filters, { topics: visible, suppressedTopicCount: topics.length - visible.length, rankings: {
+        bestDeveloped: [...visible].sort((a, b) => b.accuracyRate - a.accuracyRate),
+        needsReinforcement: [...visible].sort((a, b) => a.accuracyRate - b.accuracyRate),
       } });
     });
   }
@@ -181,6 +183,10 @@ export class AdminService {
       const raw = await this.repository.getLearningEvolution(filters);
       const firstAttempts = enrichMetrics(raw.firstAttempts);
       const repeatAttempts = enrichMetrics(raw.repeatAttempts);
+      if (firstAttempts.totalAttempts < this.minimumSampleSize || repeatAttempts.totalAttempts < this.minimumSampleSize) {
+        return this.envelope(filters, { suppressed: true, firstAttempts: null, repeatAttempts: null, evolution: null,
+          methodology: "Dados ocultados até que primeiras tentativas e repetições atinjam a amostra mínima." });
+      }
       return this.envelope(filters, {
         firstAttempts, repeatAttempts,
         evolution: {
@@ -197,7 +203,8 @@ export class AdminService {
     return this.cached(`scores:${filterKey(filters)}`, async () => {
       const bands = await this.repository.getScoreDistribution(filters);
       const total = bands.reduce((sum, band) => sum + band.count, 0);
-      return this.envelope(filters, { totalMeasuredAttempts: total, bands: bands.map((band) => ({ ...band, percentage: percentage(band.count, total) })) });
+      if (total < this.minimumSampleSize) return this.envelope(filters, { suppressed: true, totalMeasuredAttempts: 0, bands: [] });
+      return this.envelope(filters, { suppressed: false, totalMeasuredAttempts: total, bands: bands.map((band) => ({ ...band, percentage: percentage(band.count, total) })) });
     });
   }
 
@@ -206,15 +213,16 @@ export class AdminService {
       const [overview, learning, regionCompletions] = await Promise.all([
         this.getOverview(filters), this.getLearningEvolution(filters), this.repository.getRegionCompletions(filters),
       ]);
-      const first = learning.firstAttempts.totalAttempts;
-      const repeats = learning.repeatAttempts.totalAttempts;
+      const first = learning.firstAttempts?.totalAttempts ?? 0;
+      const repeats = learning.repeatAttempts?.totalAttempts ?? 0;
       return this.envelope(filters, {
         players: overview.players,
         attemptsPerActivePlayer: overview.players.activeInPeriod > 0 ? round(overview.attempts.total / overview.players.activeInPeriod) : 0,
         firstAttempts: first,
         repeatAttempts: repeats,
         repeatAttemptRate: percentage(repeats, first + repeats),
-        regionCompletions,
+        regionCompletions: regionCompletions.filter((region) => region.completedPlayers >= this.minimumSampleSize),
+        suppressedRegionCompletionCount: regionCompletions.filter((region) => region.completedPlayers < this.minimumSampleSize).length,
       });
     });
   }

@@ -19,8 +19,7 @@
     "test:backend": "vitest run backend/src",
     "build:backend": "npm run lint:backend",
     "firebase:seed": "node backend/src/database/seed.js",
-    "db:cleanup": "node backend/src/database/cleanup.js",
-    "admin:hash-password": "node backend/scripts/hash-admin-password.js"
+    "db:cleanup": "node backend/src/database/cleanup.js"
   },
   "dependencies": {
     "canvas-confetti": "^1.9.4",
@@ -29,7 +28,7 @@
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
     "express-rate-limit": "^8.2.1",
-    "firebase-admin": "^14.4.0",
+    "firebase-admin": "^14.5.0",
     "helmet": "^8.1.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
@@ -43,11 +42,11 @@
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
     "@vitejs/plugin-react": "^6.1.0",
-    "concurrently": "^9.2.1",
+    "concurrently": "^9.2.5",
     "oxlint": "^1.79.0",
     "supertest": "^7.1.4",
     "typescript": "~6.0.2",
-    "vite": "^8.2.2",
-    "vitest": "^4.0.13"
+    "vite": "^8.3.5",
+    "vitest": "^4.1.12"
   }
 }
