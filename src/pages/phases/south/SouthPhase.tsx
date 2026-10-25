@@ -6,6 +6,7 @@ import { useScore } from "../../../context/ScoreContext";
 import { useSession } from "../../../context/SessionContext";
 import { useAttempt } from "../../../hooks/useAttempt";
 import { POINTS_PER_CORRECT_ANSWER } from "../../../data/scoring";
+import { createTopicTracker, type TopicId } from "../../../utils/topicResults";
 import { narrations } from "../../../data/narrations";
 import paranaA from "../../../assets/sul/parana-a.png";
 import paranaB from "../../../assets/sul/parana-b.png";
@@ -23,6 +24,7 @@ type Spot = {
     right: { x: number; y: number };
   };
   clue: string;
+  topicId: TopicId;
 };
 
 type Stage = {
@@ -45,13 +47,13 @@ const STAGES: Stage[] = [
     fact: "A araucária é uma árvore nativa do Sul. Seu pinhão é um alimento tradicional da região.",
     images: { left: paranaA, right: paranaB },
     spots: [
-      { id: 1, positions: { left: { x: 105, y: 125 }, right: { x: 245, y: 100 } }, clue: "O pássaro mudou de galho." },
-      { id: 2, positions: { left: { x: 82, y: 548 }, right: { x: 82, y: 548 } }, clue: "A flor mudou de cor." },
-      { id: 3, positions: { left: { x: 365, y: 565 }, right: { x: 365, y: 565 } }, clue: "O barco está com um remo a menos." },
-      { id: 4, positions: { left: { x: 582, y: 67 }, right: { x: 582, y: 67 } }, clue: "Uma nuvem mudou de formato." },
-      { id: 5, positions: { left: { x: 900, y: 430 }, right: { x: 900, y: 430 } }, clue: "Uma borboleta apareceu perto da margem." },
-      { id: 6, positions: { left: { x: 800, y: 650 }, right: { x: 800, y: 650 } }, clue: "Um peixinho apareceu no rio." },
-      { id: 7, positions: { left: { x: 250, y: 680 }, right: { x: 250, y: 680 } }, clue: "Uma flor pequena apareceu perto da margem." },
+      { id: 1, positions: { left: { x: 105, y: 125 }, right: { x: 245, y: 100 } }, clue: "O pássaro mudou de galho.", topicId: "fauna" },
+      { id: 2, positions: { left: { x: 82, y: 548 }, right: { x: 82, y: 548 } }, clue: "A flor mudou de cor.", topicId: "flora" },
+      { id: 3, positions: { left: { x: 365, y: 565 }, right: { x: 365, y: 565 } }, clue: "O barco está com um remo a menos.", topicId: "turismo" },
+      { id: 4, positions: { left: { x: 582, y: 67 }, right: { x: 582, y: 67 } }, clue: "Uma nuvem mudou de formato.", topicId: "clima" },
+      { id: 5, positions: { left: { x: 900, y: 430 }, right: { x: 900, y: 430 } }, clue: "Uma borboleta apareceu perto da margem.", topicId: "fauna" },
+      { id: 6, positions: { left: { x: 800, y: 650 }, right: { x: 800, y: 650 } }, clue: "Um peixinho apareceu no rio.", topicId: "fauna" },
+      { id: 7, positions: { left: { x: 250, y: 680 }, right: { x: 250, y: 680 } }, clue: "Uma flor pequena apareceu perto da margem.", topicId: "flora" },
     ],
   },
   {
@@ -61,13 +63,13 @@ const STAGES: Stage[] = [
     fact: "O litoral de Santa Catarina tem praias, dunas e lagoas. A baleia-franca também visita a região.",
     images: { left: santaCatarinaA, right: santaCatarinaB },
     spots: [
-      { id: 1, positions: { left: { x: 180, y: 55 }, right: { x: 155, y: 20 } }, clue: "A gaivota mudou de posição." },
-      { id: 2, positions: { left: { x: 150, y: 320 }, right: { x: 150, y: 320 } }, clue: "O guarda-sol mudou de cor." },
-      { id: 3, positions: { left: { x: 740, y: 205 }, right: { x: 740, y: 205 } }, clue: "O veleiro está com a vela diferente." },
-      { id: 4, positions: { left: { x: 490, y: 656 }, right: { x: 490, y: 656 } }, clue: "A concha mudou de cor." },
-      { id: 5, positions: { left: { x: 838, y: 668 }, right: { x: 727, y: 668 } }, clue: "A estrela-do-mar mudou de lugar." },
-      { id: 6, positions: { left: { x: 350, y: 580 }, right: { x: 350, y: 580 } }, clue: "Um caranguejo apareceu na areia." },
-      { id: 7, positions: { left: { x: 900, y: 665 }, right: { x: 900, y: 665 } }, clue: "Uma concha apareceu perto da água." },
+      { id: 1, positions: { left: { x: 180, y: 55 }, right: { x: 155, y: 20 } }, clue: "A gaivota mudou de posição.", topicId: "fauna" },
+      { id: 2, positions: { left: { x: 150, y: 320 }, right: { x: 150, y: 320 } }, clue: "O guarda-sol mudou de cor.", topicId: "turismo" },
+      { id: 3, positions: { left: { x: 740, y: 205 }, right: { x: 740, y: 205 } }, clue: "O veleiro está com a vela diferente.", topicId: "turismo" },
+      { id: 4, positions: { left: { x: 490, y: 656 }, right: { x: 490, y: 656 } }, clue: "A concha mudou de cor.", topicId: "biomas" },
+      { id: 5, positions: { left: { x: 838, y: 668 }, right: { x: 727, y: 668 } }, clue: "A estrela-do-mar mudou de lugar.", topicId: "fauna" },
+      { id: 6, positions: { left: { x: 350, y: 580 }, right: { x: 350, y: 580 } }, clue: "Um caranguejo apareceu na areia.", topicId: "fauna" },
+      { id: 7, positions: { left: { x: 900, y: 665 }, right: { x: 900, y: 665 } }, clue: "Uma concha apareceu perto da água.", topicId: "biomas" },
     ],
   },
   {
@@ -77,13 +79,13 @@ const STAGES: Stage[] = [
     fact: "O Pampa é uma paisagem de campos naturais. O chimarrão, feito com erva-mate, é uma tradição gaúcha.",
     images: { left: rioGrandeDoSulA, right: rioGrandeDoSulB },
     spots: [
-      { id: 1, positions: { left: { x: 160, y: 400 }, right: { x: 160, y: 400 } }, clue: "A cauda do cavalo mudou de posição." },
-      { id: 2, positions: { left: { x: 125, y: 565 }, right: { x: 590, y: 410 } }, clue: "O pássaro mudou de lugar." },
-      { id: 3, positions: { left: { x: 980, y: 295 }, right: { x: 980, y: 295 } }, clue: "Uma janela da casa mudou de cor." },
-      { id: 4, positions: { left: { x: 150, y: 75 }, right: { x: 150, y: 75 } }, clue: "Uma nuvem mudou de formato." },
-      { id: 5, positions: { left: { x: 300, y: 680 }, right: { x: 300, y: 680 } }, clue: "Uma flor apareceu no campo." },
-      { id: 6, positions: { left: { x: 740, y: 560 }, right: { x: 740, y: 560 } }, clue: "Uma borboleta apareceu perto da casa." },
-      { id: 7, positions: { left: { x: 450, y: 65 }, right: { x: 450, y: 65 } }, clue: "Uma nuvem pequena apareceu no céu." },
+      { id: 1, positions: { left: { x: 160, y: 400 }, right: { x: 160, y: 400 } }, clue: "A cauda do cavalo mudou de posição.", topicId: "fauna" },
+      { id: 2, positions: { left: { x: 125, y: 565 }, right: { x: 590, y: 410 } }, clue: "O pássaro mudou de lugar.", topicId: "fauna" },
+      { id: 3, positions: { left: { x: 980, y: 295 }, right: { x: 980, y: 295 } }, clue: "Uma janela da casa mudou de cor.", topicId: "historia" },
+      { id: 4, positions: { left: { x: 150, y: 75 }, right: { x: 150, y: 75 } }, clue: "Uma nuvem mudou de formato.", topicId: "clima" },
+      { id: 5, positions: { left: { x: 300, y: 680 }, right: { x: 300, y: 680 } }, clue: "Uma flor apareceu no campo.", topicId: "flora" },
+      { id: 6, positions: { left: { x: 740, y: 560 }, right: { x: 740, y: 560 } }, clue: "Uma borboleta apareceu perto da casa.", topicId: "fauna" },
+      { id: 7, positions: { left: { x: 450, y: 65 }, right: { x: 450, y: 65 } }, clue: "Uma nuvem pequena apareceu no céu.", topicId: "clima" },
     ],
   },
 ];
@@ -146,6 +148,7 @@ export default function SouthPhase() {
   const [isStarting, setIsStarting] = useState(false);
 
   const saveLock = useRef(false);
+  const topicTrackerRef = useRef(createTopicTracker());
   const stage = STAGES[stageIndex];
 
   async function startStage(nextStageIndex = stageIndex) {
@@ -173,6 +176,7 @@ export default function SouthPhase() {
     }
 
     saveLock.current = false;
+    topicTrackerRef.current.reset();
     setFoundIds([]);
     setStageIndex(nextStageIndex);
     setGameStatus("playing");
@@ -188,6 +192,7 @@ export default function SouthPhase() {
       score: ids.length * POINTS_PER_CORRECT_ANSWER,
       correctAnswers: ids.length,
       incorrectAnswers: 7 - ids.length,
+      topicResults: topicTrackerRef.current.toPayload(),
     });
 
     if (!result) {
@@ -205,6 +210,8 @@ export default function SouthPhase() {
     if (gameStatus !== "playing" || foundIds.includes(id)) return;
 
     const nextIds = [...foundIds, id];
+    const foundSpot = stage.spots.find((spot) => spot.id === id);
+    if (foundSpot) topicTrackerRef.current.record(foundSpot.topicId, true);
     setFoundIds(nextIds);
     setMessage(nextIds.length === 7 ? "Você encontrou as sete diferenças!" : "Boa! Diferença encontrada.");
     addPoints(POINTS_PER_CORRECT_ANSWER);

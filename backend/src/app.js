@@ -10,7 +10,7 @@ import { errorHandler, notFound } from "./middleware/errors.js";
 import apiRouter from "./routes/api.js";
 import { ApiError } from "./utils/api-error.js";
 export const app = express();
-const allowedOrigins = [env.FRONTEND_ORIGIN, env.ADMIN_ORIGIN].filter(Boolean);
+const allowedOrigins = [env.FRONTEND_ORIGIN];
 app.disable("x-powered-by");
 if (env.TRUST_PROXY)
     app.set("trust proxy", 1);

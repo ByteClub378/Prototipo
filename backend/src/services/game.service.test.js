@@ -23,6 +23,47 @@ describe("validação de tentativas", () => {
         expect(completeAttemptSchema.parse({ regionId: "norte", levelNumber: 1, score: 80, correctAnswers: 8, incorrectAnswers: 2, durationSeconds: 45 }).score).toBe(80);
   });
 
+  it("aceita resultados agregados por assunto", () => {
+    const result = completeAttemptSchema.parse({
+      regionId: "norte",
+      levelNumber: 1,
+      score: 80,
+      correctAnswers: 8,
+      incorrectAnswers: 2,
+      topicResults: [
+        { topicId: "fauna", correctAnswers: 6, incorrectAnswers: 2 },
+        { topicId: "flora", correctAnswers: 2, incorrectAnswers: 0 },
+      ],
+      durationSeconds: 45,
+    });
+
+    expect(result.topicResults[0].topicId).toBe("fauna");
+  });
+
+  it("rejeita resultados por assunto inconsistentes com os totais da tentativa", () => {
+    expect(() => completeAttemptSchema.parse({
+      regionId: "norte",
+      levelNumber: 1,
+      score: 80,
+      correctAnswers: 8,
+      incorrectAnswers: 2,
+      topicResults: [{ topicId: "fauna", correctAnswers: 7, incorrectAnswers: 2 }],
+      durationSeconds: 45,
+    })).toThrow();
+  });
+
+  it("rejeita resultados por assunto com tópico desconhecido", () => {
+    expect(() => completeAttemptSchema.parse({
+      regionId: "norte",
+      levelNumber: 1,
+      score: 80,
+      correctAnswers: 8,
+      incorrectAnswers: 2,
+      topicResults: [{ topicId: "geografia", correctAnswers: 8, incorrectAnswers: 2 }],
+      durationSeconds: 45,
+    })).toThrow();
+  });
+
   it("aceita os totais completos da fase Nordeste", () => {
     const result = completeAttemptSchema.parse({
       regionId: "nordeste",

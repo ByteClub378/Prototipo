@@ -55,4 +55,13 @@ export class AdminRepository {
       };
     }));
   }
+
+  async getAttempts({ from, toExclusive, regionId }) {
+    let query = db.collection("attempts")
+      .where("completedAt", ">=", from)
+      .where("completedAt", "<", toExclusive);
+    if (regionId) query = query.where("regionId", "==", regionId);
+    const snapshot = await query.get();
+    return snapshot.docs.map((document) => document.data());
+  }
 }

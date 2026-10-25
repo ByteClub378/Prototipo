@@ -16,6 +16,7 @@ import { useAttempt } from "../../../hooks/useAttempt";
 import { useSession } from "../../../context/SessionContext";
 import { useGameFeedback } from "../../../hooks/useGameFeedback";
 import { shuffle } from "../../../utils/random";
+import { createTopicTracker, type TopicId } from "../../../utils/topicResults";
 import ScoreDisplay from "../../../components/game/ScoreDisplay";
 import { narrations } from "../../../data/narrations";
 import "./NorthPhase.css";
@@ -34,6 +35,12 @@ interface Zone {
 }
 
 const MINIMUM_ACCURACY = 0.6;
+
+function getNorthTopic(item: MissionItem): TopicId {
+  return ["castanheira", "seringueira", "vitoria-regia"].includes(item.id)
+    ? "flora"
+    : "fauna";
+}
 
 function NorthPhase() {
   const {
@@ -54,6 +61,7 @@ function NorthPhase() {
   const levelIncorrectRef = useRef(0);
   const missionCorrectRef = useRef(0);
   const missionAnsweredRef = useRef(0);
+  const topicTrackerRef = useRef(createTopicTracker());
 
   const [levels, setLevels] = useState(createNorthLevels);
   const [levelIndex, setLevelIndex] = useState(0);
@@ -137,6 +145,7 @@ function NorthPhase() {
             missionIncorrectAnswers,
           }
         : {}),
+      topicResults: topicTrackerRef.current.toPayload(),
     });
 
     if (!result) {
@@ -210,6 +219,7 @@ function NorthPhase() {
       return;
     }
 
+    topicTrackerRef.current.reset();
     startLevel(levelIndex, true);
     setShowBanner(false);
     setIsStarting(false);
@@ -222,6 +232,7 @@ function NorthPhase() {
     setLevels(nextLevels);
     missionCorrectRef.current = 0;
     missionAnsweredRef.current = 0;
+    topicTrackerRef.current.reset();
     levelScoreRef.current = 0;
     levelCorrectRef.current = 0;
     levelIncorrectRef.current = 0;
@@ -295,6 +306,10 @@ function NorthPhase() {
     const correctZoneId = getCorrectZoneId(currentItem);
 
     missionAnsweredRef.current += 1;
+    topicTrackerRef.current.record(
+      getNorthTopic(currentItem),
+      zoneId === correctZoneId,
+    );
     setIsResolving(true);
 
     if (zoneId === correctZoneId) {
@@ -366,6 +381,7 @@ function NorthPhase() {
 
     missionAnsweredRef.current += 1;
     levelIncorrectRef.current += 1;
+    topicTrackerRef.current.record(getNorthTopic(currentItem), false);
 
     playTimeoutSound();
 

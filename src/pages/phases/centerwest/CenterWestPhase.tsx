@@ -29,12 +29,19 @@ import {
 } from "../../../utils/sound";
 import { logEvent } from "../../../utils/telemetry";
 import { narrations } from "../../../data/narrations";
+import { createTopicTracker, type TopicId } from "../../../utils/topicResults";
 import centroOesteMap from "../../../assets/centro-oeste/mapa-centro-oeste.jpg";
 import "./CenterWestPhase.css";
 
 const TOTAL_MISSIONS = 8;
 const MAX_LIVES = 3;
 const MISSION_TIME_SECONDS = 30;
+
+function getCentroOesteTopic(mission: CentroOesteMission): TopicId {
+  if (mission.id === "ipe-amarelo") return "flora";
+  if (mission.id === "cupinzeiro") return "biomas";
+  return "fauna";
+}
 
 type GameStatus =
   | "intro"
@@ -76,6 +83,7 @@ function CenterWestPhase() {
   const levelScoreRef = useRef(0);
   const correctAnswersRef = useRef(0);
   const incorrectAnswersRef = useRef(0);
+  const topicTrackerRef = useRef(createTopicTracker());
   const markerTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const completionSubmittingRef = useRef(false);
 
@@ -108,6 +116,7 @@ function CenterWestPhase() {
     levelScoreRef.current = 0;
     correctAnswersRef.current = 0;
     incorrectAnswersRef.current = 0;
+    topicTrackerRef.current.reset();
   }
 
   async function startGame() {
@@ -160,6 +169,7 @@ function CenterWestPhase() {
     livesRef.current = nextLives;
     setLives(nextLives);
     incorrectAnswersRef.current += 1;
+    topicTrackerRef.current.record(getCentroOesteTopic(currentMission), false);
     levelScoreRef.current = Math.max(
       0,
       levelScoreRef.current + POINTS_PER_INCORRECT_ANSWER,
@@ -221,6 +231,7 @@ function CenterWestPhase() {
     addPoints(POINTS_PER_CORRECT_ANSWER);
     levelScoreRef.current += POINTS_PER_CORRECT_ANSWER;
     correctAnswersRef.current += 1;
+    topicTrackerRef.current.record(getCentroOesteTopic(mission), true);
     setDiscoveredIds((current) => [...current, mission.id]);
     setSelectedDiscovery(mission);
     setFeedback(null);
@@ -257,6 +268,7 @@ function CenterWestPhase() {
       score: levelScoreRef.current,
       correctAnswers: correctAnswersRef.current,
       incorrectAnswers: incorrectAnswersRef.current,
+      topicResults: topicTrackerRef.current.toPayload(),
     });
 
     if (!result) {
