@@ -26,9 +26,7 @@ API padrão: `http://localhost:3000`. Prefixo: `/api/v1`. `npm start` valida o F
 | `SESSION_TTL_HOURS` | Validade da sessão | `168` |
 | `SESSION_SECRET` | Segredo de assinatura, mínimo 32 caracteres | obrigatório em produção |
 | `PLAYER_RETENTION_DAYS` | Retenção de inativos | `365` |
-| `ADMIN_API_KEY` | Chave Bearer administrativa, mínimo 32 caracteres | desabilita endpoints se ausente |
 | `ADMIN_CACHE_TTL_SECONDS` | Cache das estatísticas, entre 30 e 3600 segundos | `300` |
-| `ADMIN_ORIGIN` | Origem adicional permitida para um painel separado | opcional |
 | `FIREBASE_PROJECT_ID` | ID do projeto Firebase | obrigatório |
 | `FIREBASE_CLIENT_EMAIL` | E-mail da conta de serviço | opcional com ADC |
 | `FIREBASE_PRIVATE_KEY` | Chave privada com `\n` escapado | opcional com ADC |
@@ -135,13 +133,7 @@ idempotente, contém `passed`, `minScore`, `maxScore`, `revision` e
 
 ### Estatísticas administrativas
 
-Todas as rotas abaixo exigem:
-
-```http
-Authorization: Bearer SUA_ADMIN_API_KEY
-```
-
-- `GET /api/v1/admin/stats/overview` — total de jogadores, jogadores que
+O painel `/admin` e as rotas de métricas são públicos e somente leitura. Não exigem login ou chave de API. As rotas preservam limite de requisições e aceitam filtros opcionais `from`, `to` (`AAAA-MM-DD`) e `regionId`.`r`n`r`n- `GET /api/v1/admin/stats/overview` — total de jogadores, jogadores que
   concluíram ao menos uma tentativa, tentativas, aprovação, precisão e duração.
 - `GET /api/v1/admin/stats/levels` — métricas por fase e rankings das fases mais
   jogadas e com melhor desempenho.
@@ -178,10 +170,6 @@ tentativa é concluída. Jogadores antigos que não concluírem outra tentativa 
 esta versão não são retroativamente marcados. Já as métricas baseadas em
 `attempts` consideram os documentos existentes no momento da consulta.
 
-`ADMIN_API_KEY` é uma proteção inicial de servidor. Não coloque essa chave em
-`VITE_*`, no bundle público ou no repositório. Um painel web definitivo deverá
-usar login administrativo e uma sessão HttpOnly própria.
-
 ### Exclusão
 
 - `DELETE /api/v1/me/progress` com `X-Confirm-Reset: RESET` reinicia progresso, tentativas e medalhas.
@@ -193,14 +181,12 @@ usar login administrativo e uma sessão HttpOnly própria.
 |---:|---|
 | 400 | `VALIDATION_ERROR`, `SCORE_OUT_OF_RANGE`, `INVALID_ATTEMPT_ID` |
 | 401 | `SESSION_INVALID` |
-| 401 | `ADMIN_UNAUTHORIZED` |
 | 403 | `LEVEL_LOCKED` |
 | 403 | `ORIGIN_NOT_ALLOWED` |
 | 404 | `LEVEL_NOT_FOUND` |
 | 409 | `ATTEMPT_ID_CONFLICT`, `ATTEMPT_ALREADY_COMPLETED` |
 | 429 | Limite de requisições excedido |
 | 500 | `INTERNAL_ERROR` |
-| 503 | `ADMIN_NOT_CONFIGURED` |
 
 ## Firestore e manutenção
 

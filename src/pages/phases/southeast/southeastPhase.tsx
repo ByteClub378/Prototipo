@@ -12,7 +12,9 @@ import {
   SOUTHEAST_STATES,
   type SoutheastState,
   type SoutheastStateId,
+  type SoutheastQuestion,
 } from "../../../data/missions/questions";
+import { createTopicTracker, type TopicId } from "../../../utils/topicResults";
 import "../southeast/southeastPhase.css";
 
 const STATE_COLORS: Record<SoutheastStateId, string> = {
@@ -22,6 +24,33 @@ const STATE_COLORS: Record<SoutheastStateId, string> = {
   "espirito-santo": "#5c9ed1",
 };
 
+const QUESTION_TOPICS: Record<number, TopicId> = {
+  1: "estados-capitais",
+  2: "estados-capitais",
+  3: "estados-capitais",
+  4: "estados-capitais",
+  5: "biomas",
+  6: "clima",
+  7: "clima",
+  8: "historia",
+  9: "historia",
+  10: "flora",
+  11: "cultura",
+  12: "culinaria",
+  13: "festas-populares",
+  14: "culinaria",
+  15: "cultura",
+  16: "estados-capitais",
+  17: "turismo",
+  18: "biomas",
+  19: "cultura",
+  20: "estados-capitais",
+};
+
+function getSoutheastTopic(question: SoutheastQuestion): TopicId {
+  return QUESTION_TOPICS[question.id] ?? "estados-capitais";
+}
+
 function SudestePhase() {
   const { feedbackRef, showSuccess, showError } = useGameFeedback<HTMLElement>();
   const answerLockedRef = useRef(false);
@@ -30,6 +59,7 @@ function SudestePhase() {
   const levelScoreRef = useRef(0);
   const correctAnswersRef = useRef(0);
   const incorrectAnswersRef = useRef(0);
+  const topicTrackerRef = useRef(createTopicTracker());
   const [isAnswering, setIsAnswering] = useState(false);
   const navigate = useNavigate();
   const { addPoints } = useScore();
@@ -96,6 +126,7 @@ function SudestePhase() {
     levelScoreRef.current = 0;
     correctAnswersRef.current = 0;
     incorrectAnswersRef.current = 0;
+    topicTrackerRef.current.reset();
     setUnlockedIds([]);
     setPlacedIds([]);
     setSelectedId(null);
@@ -116,6 +147,7 @@ function SudestePhase() {
         score: levelScoreRef.current + 200,
         correctAnswers: correctAnswersRef.current,
         incorrectAnswers: incorrectAnswersRef.current,
+        topicResults: topicTrackerRef.current.toPayload(),
       });
       if (!result) {
         setCompletionError("A conexão falhou. Seus encaixes foram mantidos; tente salvar novamente.");
@@ -158,10 +190,11 @@ function SudestePhase() {
     }
     if (stateId !== targetId) {
       incorrectAnswersRef.current += 1;
+      topicTrackerRef.current.record("estados-capitais", false);
       levelScoreRef.current = Math.max(0, levelScoreRef.current + POINTS_PER_INCORRECT_ANSWER);
       addPoints(POINTS_PER_INCORRECT_ANSWER);
-      showError("Essa peça pertence a outro espaço. Confira a sigla e tente novamente!", { title: "Vamos encontrar o lugar certo!" });
-      setFeedback("Essa peça pertence a outro espaço. Confira a sigla e tente novamente!");
+      showError("Essa peça pertence a outro espaço. Confira a posição no mapa e tente novamente!", { title: "Vamos encontrar o lugar certo!" });
+      setFeedback("Essa peça pertence a outro espaço. Confira a posição no mapa e tente novamente!");
       return;
     }
 
@@ -181,7 +214,7 @@ function SudestePhase() {
     setSelectedId((current) => current === state.id ? null : state.id);
     setFeedback(selectedId === state.id
       ? "Peça desmarcada."
-      : `Peça ${state.abbreviation} selecionada. Toque na área correspondente do mapa para encaixar.`);
+      : `Peça de ${state.name} selecionada. Toque na área correspondente do mapa para encaixar.`);
   }
 
   function handleMapStateClick(state: SoutheastState) {
@@ -195,7 +228,7 @@ function SudestePhase() {
       openChallenge(state);
       return;
     }
-    setFeedback(`Selecione a peça ${state.abbreviation} ao lado e depois toque neste estado.`);
+    setFeedback(`Selecione a peça do estado ao lado e depois toque neste contorno.`);
   }
 
   function answerQuestion(optionIndex: number) {
@@ -204,6 +237,7 @@ function SudestePhase() {
     setIsAnswering(true);
     if (optionIndex !== activeQuestion.answerIndex) {
       incorrectAnswersRef.current += 1;
+      topicTrackerRef.current.record(getSoutheastTopic(activeQuestion), false);
       levelScoreRef.current = Math.max(0, levelScoreRef.current + POINTS_PER_INCORRECT_ANSWER);
       addPoints(POINTS_PER_INCORRECT_ANSWER);
       showError(activeQuestion.explanation, { title: "Quase! Leia a dica e tente de novo" });
@@ -214,6 +248,7 @@ function SudestePhase() {
 
     showSuccess(activeQuestion.explanation, { title: "Resposta certa!" });
     correctAnswersRef.current += 1;
+    topicTrackerRef.current.record(getSoutheastTopic(activeQuestion), true);
     levelScoreRef.current += POINTS_PER_CORRECT_ANSWER;
     addPoints(POINTS_PER_CORRECT_ANSWER);
     if (questionIndex === 0) {
@@ -227,7 +262,7 @@ function SudestePhase() {
 
     const unlockedStateId = activeStateId;
     const state = SOUTHEAST_STATES.find((item) => item.id === unlockedStateId);
-    setFeedback(`Duas respostas corretas! A peça ${state?.abbreviation} foi liberada para encaixe.`);
+    setFeedback(`Duas respostas corretas! A peça de ${state?.name} foi liberada para encaixe.`);
     scheduleAnswer(() => {
       setUnlockedIds((current) => current.includes(unlockedStateId) ? current : [...current, unlockedStateId]);
       setSelectedId(unlockedStateId);
@@ -373,7 +408,7 @@ function SudestePhase() {
                 );
               })}
             </div>
-            <p className="sudeste-phase__helper">No computador, arraste a peça. No celular, selecione-a e toque no estado correspondente do mapa.</p>
+            <p className="sudeste-phase__helper">Como jogar: no computador, arraste a peça até o contorno. No celular, toque na peça e depois no contorno do mesmo estado.</p>
           </section>
 
           <section className="sudeste-phase__map-panel" aria-labelledby="sudeste-map-title">
@@ -386,7 +421,7 @@ function SudestePhase() {
             </div>
             <svg className="sudeste-phase__map" viewBox="0 0 420 390" role="group" aria-labelledby="sudeste-svg-title sudeste-svg-description">
               <title id="sudeste-svg-title">Quebra-cabeça dos estados do Sudeste</title>
-              <desc id="sudeste-svg-description">Mapa esquemático dividido em São Paulo, Minas Gerais, Rio de Janeiro e Espírito Santo. Clique em um estado para abrir as perguntas ou encaixe uma peça liberada.</desc>
+              <desc id="sudeste-svg-description">Mapa dos quatro estados do Sudeste. Toque em uma área para abrir as perguntas ou encaixe uma peça liberada.</desc>
               {SOUTHEAST_STATES.map((state) => {
                 const placed = placedIds.includes(state.id);
                 const unlocked = unlockedIds.includes(state.id);
@@ -413,9 +448,6 @@ function SudestePhase() {
                         if (draggedId) placeState(draggedId, state.id);
                       }}
                     />
-                    <text x={state.label.x} y={state.label.y} className={`sudeste-phase__state-label${placed ? " is-placed" : ""}`} aria-hidden="true">
-                      {placed ? `✓ ${state.abbreviation}` : state.abbreviation}
-                    </text>
                   </g>
                 );
               })}
@@ -463,3 +495,4 @@ function SudestePhase() {
 }
 
 export default SudestePhase;
+

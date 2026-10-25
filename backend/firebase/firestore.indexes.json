@@ -7,6 +7,14 @@
         { "fieldPath": "levelId", "order": "ASCENDING" },
         { "fieldPath": "passed", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "attempts",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "regionId", "order": "ASCENDING" },
+        { "fieldPath": "completedAt", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

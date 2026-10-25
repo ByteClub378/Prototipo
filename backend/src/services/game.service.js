@@ -12,6 +12,11 @@ export const completeAttemptSchema = z.object({
     incorrectAnswers: z.number().int().min(0).max(10_000),
     missionCorrectAnswers: z.number().int().min(0).max(10_000).optional(),
     missionIncorrectAnswers: z.number().int().min(0).max(10_000).optional(),
+    topicResults: z.array(z.object({
+        topicId: z.enum(["fauna", "flora", "biomas", "clima", "estados-capitais", "cultura", "culinaria", "festas-populares", "historia", "turismo"]),
+        correctAnswers: z.number().int().min(0).max(10_000),
+        incorrectAnswers: z.number().int().min(0).max(10_000),
+    }).strict()).optional(),
     durationSeconds: z.number().int().min(1).max(86_400),
 }).strict().refine((data) => data.correctAnswers + data.incorrectAnswers > 0, {
     message: "A tentativa deve conter ao menos uma resposta.",
@@ -19,6 +24,13 @@ export const completeAttemptSchema = z.object({
     (data.missionCorrectAnswers === undefined) ===
     (data.missionIncorrectAnswers === undefined), {
     message: "Os totais da missão devem ser enviados juntos.",
+}).refine((data) => {
+    if (data.topicResults === undefined) return true;
+    const correctAnswers = data.topicResults.reduce((total, result) => total + result.correctAnswers, 0);
+    const incorrectAnswers = data.topicResults.reduce((total, result) => total + result.incorrectAnswers, 0);
+    return correctAnswers === data.correctAnswers && incorrectAnswers === data.incorrectAnswers;
+}, {
+    message: "Os totais por assunto devem corresponder aos totais da tentativa.",
 });
 export class GameService {
     repository;

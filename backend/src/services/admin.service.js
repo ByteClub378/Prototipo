@@ -8,6 +8,19 @@ const round = (number, digits = 2) => {
 
 const percentage = (part, total) => total > 0 ? round(part * 100 / total) : 0;
 
+const TOPICS = [
+  ["fauna", "Fauna"],
+  ["flora", "Flora"],
+  ["biomas", "Biomas"],
+  ["clima", "Clima"],
+  ["estados-capitais", "Estados e capitais"],
+  ["cultura", "Cultura"],
+  ["culinaria", "Culinária"],
+  ["festas-populares", "Festas populares"],
+  ["historia", "História"],
+  ["turismo", "Turismo"],
+];
+
 const enrichLevel = (level) => {
   const answered = level.totalCorrectAnswers + level.totalIncorrectAnswers;
   return {
@@ -63,6 +76,106 @@ export class AdminService {
         },
       };
     });
+  }
+
+  async getDashboard(filters) {
+    const cacheKey = `dashboard:${filters.from.toISOString()}:${filters.toExclusive.toISOString()}:${filters.regionId ?? "all"}`;
+    return this.cached(cacheKey, async () => {
+      const [playerData, attempts] = await Promise.all([
+        this.repository.getOverview(),
+        this.repository.getAttempts(filters),
+      ]);
+      const passed = attempts.filter((attempt) => attempt.passed).length;
+      const correct = attempts.reduce((sum, attempt) => sum + (attempt.correctAnswers ?? 0), 0);
+      const incorrect = attempts.reduce((sum, attempt) => sum + (attempt.incorrectAnswers ?? 0), 0);
+      const scorePercent = attempts.reduce((sum, attempt) => {
+        return sum + (attempt.maxScore > 0 ? attempt.score * 100 / attempt.maxScore : 0);
+      }, 0);
+      const activePlayers = new Set(attempts.map((attempt) => attempt.playerId).filter(Boolean));
+
+      const overview = {
+        generatedAt: new Date().toISOString(),
+        players: {
+          total: playerData.totalPlayers,
+          whoPlayed: playerData.playersWhoPlayed,
+          activeInPeriod: activePlayers.size,
+          whoOnlyOpened: Math.max(0, playerData.totalPlayers - playerData.playersWhoPlayed),
+        },
+        attempts: {
+          total: attempts.length,
+          passed,
+          failed: attempts.length - passed,
+          passRate: percentage(passed, attempts.length),
+          accuracyRate: percentage(correct, correct + incorrect),
+          performanceIndex: attempts.length ? round(scorePercent / attempts.length) : 0,
+          averageDurationSeconds: attempts.length
+            ? round(attempts.reduce((sum, attempt) => sum + (attempt.durationSeconds ?? 0), 0) / attempts.length)
+            : 0,
+          totalCorrectAnswers: correct,
+          totalIncorrectAnswers: incorrect,
+        },
+      };
+
+      const regions = REGIONS.map((region) => {
+        const regionAttempts = attempts.filter((attempt) => attempt.regionId === region.id);
+        const regionPassed = regionAttempts.filter((attempt) => attempt.passed).length;
+        const regionCorrect = regionAttempts.reduce((sum, attempt) => sum + (attempt.correctAnswers ?? 0), 0);
+        const regionIncorrect = regionAttempts.reduce((sum, attempt) => sum + (attempt.incorrectAnswers ?? 0), 0);
+        const regionScorePercent = regionAttempts.reduce((sum, attempt) => {
+          return sum + (attempt.maxScore > 0 ? attempt.score * 100 / attempt.maxScore : 0);
+        }, 0);
+        return {
+          regionId: region.id,
+          name: region.name,
+          totalAttempts: regionAttempts.length,
+          passedAttempts: regionPassed,
+          failedAttempts: regionAttempts.length - regionPassed,
+          passRate: percentage(regionPassed, regionAttempts.length),
+          accuracyRate: percentage(regionCorrect, regionCorrect + regionIncorrect),
+          performanceIndex: regionAttempts.length ? round(regionScorePercent / regionAttempts.length) : 0,
+        };
+      });
+
+      const topicTotals = new Map(TOPICS.map(([id]) => [id, { correctAnswers: 0, incorrectAnswers: 0 }]));
+      for (const attempt of attempts) {
+        for (const result of attempt.topicResults ?? []) {
+          const total = topicTotals.get(result.topicId);
+          if (!total) continue;
+          total.correctAnswers += result.correctAnswers;
+          total.incorrectAnswers += result.incorrectAnswers;
+        }
+      }
+      const topics = TOPICS.map(([id, name]) => {
+        const total = topicTotals.get(id);
+        const totalAnswers = total.correctAnswers + total.incorrectAnswers;
+        const accuracyRate = percentage(total.correctAnswers, totalAnswers);
+        return {
+          id,
+          name,
+          correctAnswers: total.correctAnswers,
+          incorrectAnswers: total.incorrectAnswers,
+          totalAnswers,
+          accuracyRate,
+          difficultyIndex: totalAnswers ? round(100 - accuracyRate) : null,
+        };
+      });
+
+      return { generatedAt: overview.generatedAt, overview, regions, topics };
+    });
+  }
+
+  async getFilteredOverview(filters) {
+    return (await this.getDashboard(filters)).overview;
+  }
+
+  async getFilteredRegions(filters) {
+    const dashboard = await this.getDashboard(filters);
+    return { generatedAt: dashboard.generatedAt, regions: dashboard.regions };
+  }
+
+  async getTopics(filters) {
+    const dashboard = await this.getDashboard(filters);
+    return { generatedAt: dashboard.generatedAt, topics: dashboard.topics };
   }
 
   async getLevels() {

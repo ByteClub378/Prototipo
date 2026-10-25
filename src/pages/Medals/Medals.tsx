@@ -29,7 +29,7 @@ export default function Medals() {
     return {
       ...region,
       earned: awardedRegionIds.has(region.id),
-      available: status === "unlocked" && region.id !== "sul",
+      available: status === "unlocked" || status === "completed",
     };
   });
 
@@ -130,11 +130,9 @@ export default function Medals() {
             >
               {medal.earned
                 ? "✓ Conquistada"
-                : medal.id === "sul"
-                  ? "Em desenvolvimento"
-                  : medal.available
-                    ? "Pronta para conquistar"
-                    : "Ainda bloqueada"}
+                : medal.available
+                  ? "Pronta para conquistar"
+                  : "Ainda bloqueada"}
             </span>
 
             <h2>Medalha do {medal.name}</h2>
@@ -153,9 +151,7 @@ export default function Medals() {
               </Link>
             ) : (
               <span className="medal-card__locked">
-                {medal.id === "sul"
-                  ? "Novas aventuras em breve"
-                  : "Complete as regiões anteriores"}
+                Complete as regiões anteriores
               </span>
             )}
           </article>

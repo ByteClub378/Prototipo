@@ -99,3 +99,38 @@
 @media (prefers-reduced-motion: reduce) {
   .sudeste-phase *, .sudeste-phase *::before, .sudeste-phase *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
 }
+
+
+
+/* Refinamento: contorno cartográfico sem siglas e layout compacto em desktop. */
+.sudeste-phase { width:100%; max-width:1500px; min-height:calc(100svh - 2rem); display:flex; flex-direction:column; padding:clamp(.7rem,1.25vw,1.2rem); }
+.sudeste-phase__header { align-items:flex-start; gap:.8rem; padding-bottom:.75rem; }
+.sudeste-phase__header h1 { font-size:clamp(1.55rem,2.8vw,2.2rem); }
+.sudeste-phase__header p { margin:.35rem 0 .55rem; line-height:1.35; }
+.sudeste-phase__board { flex:1; min-height:0; grid-template-columns:minmax(285px,.82fr) minmax(0,1.18fr); gap:clamp(.7rem,1.4vw,1.2rem); align-items:stretch; padding-top:.85rem; }
+.sudeste-phase__pieces,.sudeste-phase__map-panel { padding:clamp(.75rem,1.3vw,1.2rem); border-radius:19px; }
+.sudeste-phase__section-heading { margin-bottom:.7rem; }
+.sudeste-phase__tile-list { gap:.45rem; }
+.sudeste-phase__tile { min-height:60px; gap:.6rem; padding:.55rem .65rem; }
+.sudeste-phase__tile-icon { width:36px; height:36px; }
+.sudeste-phase__helper { margin-top:.55rem; font-size:.72rem; }
+.sudeste-phase__map-panel { display:flex; flex-direction:column; align-items:stretch; }
+.sudeste-phase__map { flex:1; width:min(100%,430px); max-height:min(42svh,350px); margin:auto; }
+.sudeste-phase__state-shape { stroke-width:2.2px; }
+.sudeste-phase__state-shape.is-unlocked { stroke-width:3px; }
+.sudeste-phase__state-shape.is-targeted { stroke-width:5px; }
+.sudeste-phase__state-shape.is-placed { stroke-width:2.5px; }
+.sudeste-phase__legend { padding-top:.35rem; }
+.sudeste-phase__feedback { min-height:0; margin:.55rem 0 0; padding:.55rem .8rem; }
+@media (max-height:790px) and (min-width:761px) {
+ .sudeste-phase__board { grid-template-columns:minmax(270px,.86fr) minmax(0,1.14fr); }
+ .sudeste-phase__tile { min-height:54px; }
+ .sudeste-phase__tile-icon { width:32px; height:32px; }
+ .sudeste-phase__map { max-height:34svh; }
+}
+@media (max-width:760px) {
+ .sudeste-phase { min-height:auto; padding:1rem; }
+ .sudeste-phase__board { flex:initial; min-height:auto; }
+ .sudeste-phase__map { flex:initial; width:min(100%,430px); max-height:42svh; }
+}
+
