@@ -8,7 +8,7 @@ import FeedbackMessage from "../../../components/game/FeedbackMessage";
 import MissionTimer from "../../../components/game/MissionTimer";
 import ScoreDisplay from "../../../components/game/ScoreDisplay";
 import { useScore } from "../../../context/ScoreContext";
-import { NORDESTE_QUESTIONS, type QuizOption } from "../../../data/missions/nordesteQuestions";
+import { NORDESTE_QUESTIONS, type QuizOption, type QuizQuestion } from "../../../data/missions/nordesteQuestions";
 import { createNordesteLevels } from "../../../data/missions/nordesteLevels";
 import { playSuccessSound, playErrorSound, playTimeoutSound } from "../../../utils/sound";
 import { logEvent } from "../../../utils/telemetry";
@@ -18,6 +18,7 @@ import { POINTS_PER_CORRECT_ANSWER, POINTS_PER_INCORRECT_ANSWER } from "../../..
 import { shuffle } from "../../../utils/random";
 import { useGameFeedback } from "../../../hooks/useGameFeedback";
 import { narrations } from "../../../data/narrations";
+import { createTopicTracker, type TopicId } from "../../../utils/topicResults";
 import "./NordestePhase.css";
 
 const QUESTION_MAP = new Map(NORDESTE_QUESTIONS.map((q) => [q.id, q]));
@@ -72,6 +73,23 @@ interface Feedback {
 
 const MINIMUM_ACCURACY = 0.6;
 
+function getNordesteTopic(question: QuizQuestion): TopicId {
+  if (question.category === "Culinária") return "culinaria";
+  if (question.category === "Lendas") return "cultura";
+  if (question.category === "Fauna") return "fauna";
+
+  switch (question.id) {
+    case "nove-estados":
+      return "estados-capitais";
+    case "lencois-maranhenses":
+      return "turismo";
+    case "serra-capivara":
+      return "historia";
+    default:
+      return "biomas";
+  }
+}
+
 function NordestePhase() {
   const { feedbackRef, showSuccess, showError, notifyError, clearFeedback } = useGameFeedback();
   const resolvingRef = useRef(false);
@@ -84,6 +102,7 @@ function NordestePhase() {
   const levelIncorrectRef = useRef(0);
   const missionCorrectRef = useRef(0);
   const missionAnsweredRef = useRef(0);
+  const topicTrackerRef = useRef(createTopicTracker());
 
   const [levels, setLevels] = useState(createNordesteLevels);
   const [levelIndex, setLevelIndex] = useState(0);
@@ -162,6 +181,7 @@ function NordestePhase() {
             missionIncorrectAnswers,
           }
         : {}),
+      topicResults: topicTrackerRef.current.toPayload(),
     });
 
     if (!result) {
@@ -239,6 +259,7 @@ function NordestePhase() {
       return;
     }
 
+    topicTrackerRef.current.reset();
     startLevel(levelIndex, true);
     setShowBanner(false);
     setIsStarting(false);
@@ -253,6 +274,7 @@ function NordestePhase() {
     setLevels(nextLevels);
     missionCorrectRef.current = 0;
     missionAnsweredRef.current = 0;
+    topicTrackerRef.current.reset();
     levelScoreRef.current = 0;
     levelCorrectRef.current = 0;
     levelIncorrectRef.current = 0;
@@ -308,6 +330,10 @@ function NordestePhase() {
     resolvingRef.current = true;
 
     missionAnsweredRef.current += 1;
+    topicTrackerRef.current.record(
+      getNordesteTopic(currentQuestion),
+      option.correct,
+    );
     setSelectedOptionId(option.id);
 
     if (option.correct) {
@@ -344,6 +370,7 @@ function NordestePhase() {
     resolvingRef.current = true;
 
     missionAnsweredRef.current += 1;
+    topicTrackerRef.current.record(getNordesteTopic(currentQuestion), false);
 
     playTimeoutSound();
     showError(`Vamos aprender e seguir em frente: ${currentQuestion.fact}`, { title: "Tempo esgotado!" });

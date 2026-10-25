@@ -11,6 +11,7 @@ import CenterWestPhase from "./pages/phases/centerwest/CenterWestPhase";
 import SouthPhase from "./pages/phases/south/SouthPhase";
 import SudestePhase from "./pages/phases/southeast/southeastPhase";
 import CreditsScreen from "./pages/Credits/CreditsScreen";
+import AdminPanel from "./pages/Admin/AdminPanel";
 
 
 
@@ -19,6 +20,7 @@ function App() {
 
   return (
     <Routes>
+      <Route path="/admin" element={<AdminPanel />} />
       <Route
         path="/"
         element={

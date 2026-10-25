@@ -99,7 +99,7 @@ export class GameRepository {
           ? meetsPassingAccuracy(input.missionCorrectAnswers, input.missionIncorrectAnswers)
           : input.score >= minScore;
       if (current?.status === "completed") {
-        const differs = current.score !== input.score || current.correctAnswers !== input.correctAnswers || current.incorrectAnswers !== input.incorrectAnswers || current.missionCorrectAnswers !== input.missionCorrectAnswers || current.missionIncorrectAnswers !== input.missionIncorrectAnswers || current.durationSeconds !== input.durationSeconds;
+        const differs = current.score !== input.score || current.correctAnswers !== input.correctAnswers || current.incorrectAnswers !== input.incorrectAnswers || current.missionCorrectAnswers !== input.missionCorrectAnswers || current.missionIncorrectAnswers !== input.missionIncorrectAnswers || JSON.stringify(current.topicResults ?? []) !== JSON.stringify(input.topicResults ?? []) || current.durationSeconds !== input.durationSeconds;
         if (differs) throw new ApiError(409, "ATTEMPT_ALREADY_COMPLETED", "A tentativa já foi concluída com outros dados.");
         return {
           attemptId,

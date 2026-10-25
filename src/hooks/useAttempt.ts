@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from "react";
 import { apiPatch, apiPost, ApiError } from "../utils/api";
+import type { TopicResult } from "../utils/topicResults";
 import type { RegionId } from "../types";
 
 interface CompleteAttemptPayload {
@@ -8,6 +9,7 @@ interface CompleteAttemptPayload {
   incorrectAnswers: number;
   missionCorrectAnswers?: number;
   missionIncorrectAnswers?: number;
+  topicResults?: TopicResult[];
 }
 
 interface StoredCompleteAttempt {
