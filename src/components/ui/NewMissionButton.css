@@ -21,3 +21,9 @@
 }
 
 .new-mission-button:active { transform: translateY(0); }
+
+.sidebar .new-mission-button__label {
+  overflow: hidden;
+  white-space: nowrap;
+  transition: max-width 180ms ease, opacity 140ms ease;
+}

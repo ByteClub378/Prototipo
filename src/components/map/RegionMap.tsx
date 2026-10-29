@@ -93,17 +93,29 @@ function RegionMap() {
         })}
       </svg>
 
-      <div
+      <button
+        type="button"
         className={`region-map__bonus ${
           bonusUnlocked ? "region-map__bonus--unlocked" : "region-map__bonus--locked"
         }`}
+        onClick={() => {
+          if (bonusUnlocked) navigate("/missao/bonus");
+        }}
+        disabled={!bonusUnlocked}
+        aria-label={
+          bonusUnlocked
+            ? "Abrir fase bônus: Memória do Brasil"
+            : "Fase bônus bloqueada. Complete as cinco regiões."
+        }
       >
         <span>{bonusUnlocked ? "🏆" : "🔒"}</span>
         <span>Fase Bônus</span>
         <span className="region-map__bonus-copy">
-          {bonusUnlocked ? "Tesouro encontrado!" : "Complete as regiões para abrir o tesouro"}
+          {bonusUnlocked
+            ? "Jogar Memória do Brasil"
+            : "Complete as regiões para abrir o tesouro"}
         </span>
-      </div>
+      </button>
     </div>
   );
 }

@@ -75,3 +75,29 @@
 }
 
 .region-map__bonus-copy { font-size: 0.78rem; font-weight: 700; opacity: 0.8; }
+
+.region-map__bonus {
+  text-align: left;
+  font-family: inherit;
+  cursor: not-allowed;
+}
+
+.region-map__bonus--unlocked {
+  cursor: pointer;
+  transition: transform 150ms ease, filter 150ms ease;
+}
+
+.region-map__bonus--unlocked:hover,
+.region-map__bonus--unlocked:focus-visible {
+  transform: translateY(-2px);
+  filter: brightness(1.04);
+}
+
+.region-map__bonus:focus-visible {
+  outline: 3px solid #254d32;
+  outline-offset: 3px;
+}
+
+.region-map__bonus:disabled {
+  opacity: 1;
+}

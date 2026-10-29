@@ -65,6 +65,92 @@ const OPTION_IMAGES: Record<string, string> = {
   "tricô europeu": "https://images.unsplash.com/photo-1527515637462-cff94eecc1ac?auto=format&fit=crop&w=640&q=80",
 };
 
+interface CommonsImage {
+  url: string;
+  pageUrl: string;
+  artist: string;
+  license: string;
+}
+
+interface CommonsPage {
+  fullurl?: string;
+  imageinfo?: Array<{
+    thumburl?: string;
+    url?: string;
+    descriptionurl?: string;
+    extmetadata?: Record<string, { value?: string }>;
+  }>;
+}
+
+interface CommonsResponse {
+  query?: {
+    pages?: Record<string, CommonsPage>;
+  };
+}
+
+const commonsImageCache = new Map<string, Promise<CommonsImage | null>>();
+
+function plainText(value = "") {
+  return value
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;|&#160;/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function searchCommonsImage(term: string): Promise<CommonsImage | null> {
+  const cacheKey = term.trim().toLowerCase();
+  const cachedRequest = commonsImageCache.get(cacheKey);
+  if (cachedRequest) return cachedRequest;
+
+  const params = new URLSearchParams({
+    action: "query",
+    generator: "search",
+    gsrsearch: `filetype:bitmap ${term}`,
+    gsrnamespace: "6",
+    gsrlimit: "1",
+    prop: "imageinfo",
+    iiprop: "url|extmetadata",
+    iiurlwidth: "480",
+    format: "json",
+    origin: "*",
+  });
+
+  const request = fetch(
+    `https://commons.wikimedia.org/w/api.php?${params.toString()}`,
+  )
+    .then(async (response): Promise<CommonsResponse> => {
+      if (!response.ok) {
+        throw new Error(`Wikimedia Commons respondeu com HTTP ${response.status}`);
+      }
+
+      return response.json() as Promise<CommonsResponse>;
+    })
+    .then((data) => {
+      const page = Object.values(data.query?.pages ?? {})[0];
+      const image = page?.imageinfo?.[0];
+      const imageUrl = image?.thumburl ?? image?.url;
+
+      if (!image || !imageUrl) return null;
+
+      return {
+        url: imageUrl,
+        pageUrl: image.descriptionurl ?? page.fullurl ?? "https://commons.wikimedia.org/",
+        artist: plainText(image.extmetadata?.Artist?.value) || "Wikimedia Commons",
+        license:
+          plainText(image.extmetadata?.LicenseShortName?.value) ||
+          "Consulte a licença",
+      };
+    })
+    .catch((error: unknown) => {
+      console.warn("[nordeste] Falha ao buscar imagem no Wikimedia Commons:", error);
+      return null;
+    });
+
+  commonsImageCache.set(cacheKey, request);
+  return request;
+}
+
 interface Feedback {
   type: "success" | "error";
   title: string;
@@ -121,6 +207,7 @@ function NordestePhase() {
   const [isStarting, setIsStarting] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [saveFailed, setSaveFailed] = useState(false);
+  const [commonsImages, setCommonsImages] = useState<Record<string, CommonsImage>>({});
 
   const advanceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isSubmittingRef = useRef(false);
@@ -325,6 +412,36 @@ function NordestePhase() {
     );
   }, [currentQuestion, level.optionCount]);
 
+  useEffect(() => {
+    let cancelled = false;
+    const optionsWithoutImage = currentOptions.filter(
+      (option) => !OPTION_IMAGES[option.id] && !option.image,
+    );
+
+    void Promise.all(
+      optionsWithoutImage.map(async (option) => {
+        const image = await searchCommonsImage(option.text);
+        return [`${option.id}:${option.text}`, image] as const;
+      }),
+    ).then((results) => {
+      if (cancelled) return;
+
+      setCommonsImages((current) => {
+        const updated = { ...current };
+
+        for (const [key, image] of results) {
+          if (image) updated[key] = image;
+        }
+
+        return updated;
+      });
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentOptions]);
+
   function handleSelectOption(option: QuizOption) {
     if (!currentQuestion || resolvingRef.current || isResolving || isSubmitting) return;
     resolvingRef.current = true;
@@ -484,6 +601,9 @@ function NordestePhase() {
               <div className="nordeste-phase__options">
                 {currentOptions.map((option) => {
                   const isSelected = selectedOptionId === option.id;
+                  const commonsImage = commonsImages[`${option.id}:${option.text}`];
+                  const imageSrc =
+                    OPTION_IMAGES[option.id] ?? option.image ?? commonsImage?.url;
                   const stateClass = isSelected
                     ? option.correct
                       ? "nordeste-phase__option--correct"
@@ -491,26 +611,43 @@ function NordestePhase() {
                     : "";
 
                   return (
-                    <button
-                      key={option.id}
-                      className={`nordeste-phase__option ${stateClass}`}
-                      onClick={() => handleSelectOption(option)}
-                      disabled={isResolving || isSubmitting}
-                    >
-                      <span className="nordeste-phase__option-image-wrap">
-                        {OPTION_IMAGES[option.id] || option.image ? (
-                          <img
-                            className="nordeste-phase__option-image"
-                            src={OPTION_IMAGES[option.id] ?? option.image}
-                            alt=""
-                            loading="lazy"
-                          />
-                        ) : (
-                          <span className="nordeste-phase__option-fallback" aria-hidden="true">{currentQuestion.icon}</span>
-                        )}
-                      </span>
-                      <span className="nordeste-phase__option-text">{option.text}</span>
-                    </button>
+                    <div className="nordeste-phase__option-container" key={option.id}>
+                      <button
+                        className={`nordeste-phase__option ${stateClass}`}
+                        onClick={() => handleSelectOption(option)}
+                        disabled={isResolving || isSubmitting}
+                      >
+                        <span className="nordeste-phase__option-image-wrap">
+                          {imageSrc ? (
+                            <img
+                              className="nordeste-phase__option-image"
+                              src={imageSrc}
+                              alt={`Imagem de ${option.text}`}
+                              loading="lazy"
+                            />
+                          ) : (
+                            <span
+                              className="nordeste-phase__option-fallback"
+                              aria-hidden="true"
+                            >
+                              {currentQuestion.icon}
+                            </span>
+                          )}
+                        </span>
+                        <span className="nordeste-phase__option-text">{option.text}</span>
+                      </button>
+                      {commonsImage && (
+                        <a
+                          className="nordeste-phase__option-credit"
+                          href={commonsImage.pageUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          aria-label={`Crédito da imagem: ${commonsImage.artist}. Licença ${commonsImage.license}`}
+                        >
+                          Crédito: {commonsImage.artist} · {commonsImage.license}
+                        </a>
+                      )}
+                    </div>
                   );
                 })}
               </div>
