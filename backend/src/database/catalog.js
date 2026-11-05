@@ -7,6 +7,7 @@ export const REGIONS = [
 ];
 
 export const LEVELS = [
+  ...Array.from({ length: 5 }, (_, index) => ({ regionId: "bonus", levelNumber: index + 1, name: `Memória do Brasil ${index + 1}`, questionCount: 8, maxScore: 800, minScore: 800 })),
   { regionId: "norte", levelNumber: 1, name: "Escolha o ambiente", questionCount: 4, maxScore: 400, minScore: 240 },
   { regionId: "norte", levelNumber: 2, name: "Combina ou não?", questionCount: 4, maxScore: 400, minScore: 240 },
   { regionId: "norte", levelNumber: 3, name: "Desafio relâmpago", questionCount: 5, maxScore: 500, minScore: 300 },

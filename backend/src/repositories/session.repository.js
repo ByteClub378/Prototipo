@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { Timestamp } from "firebase-admin/firestore";
 import { initialProgress } from "../database/catalog.js";
 
@@ -8,6 +9,8 @@ export class SessionRepository {
     await this.db.collection("players").doc(playerId).create({
       publicId,
       revision: 1,
+      journeyId: randomUUID(),
+      checkpoints: {},
       createdAt: Timestamp.now(),
       lastSeenAt: Timestamp.now(),
       ...initialProgress(),

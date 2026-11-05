@@ -220,7 +220,7 @@ export default function MemoryPhase() {
   const startingRef = useRef(false);
   const savingRef = useRef(false);
 
-  const [stageIndex, setStageIndex] = useState(() => Math.max(0, (gameState?.checkpoints.bonus?.nextLevelNumber ?? 1) - 1));
+  const [stageIndex, setStageIndex] = useState(() => Math.max(0, (gameState?.checkpoints?.bonus?.nextLevelNumber ?? 1) - 1));
   const [status, setStatus] = useState<GameStatus>("intro");
   const [deck, setDeck] = useState<MemoryCard[]>([]);
   const [flippedIds, setFlippedIds] = useState<string[]>([]);

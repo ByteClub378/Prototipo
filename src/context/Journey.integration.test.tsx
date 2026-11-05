@@ -6,7 +6,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SessionProvider, useSession } from "./SessionContext";
 import { ScoreProvider, useScore } from "./ScoreContext";
 import { useAttempt } from "../hooks/useAttempt";
-import { RegionBoundary } from "../components/game/SessionBoundary";
+import { RegionBoundary, SessionBoundary } from "../components/game/SessionBoundary";
+import { GameFeedbackContext } from "./gameFeedbackContext";
+import NorthPhase from "../pages/phases/North/NorthPhase";
 import StartPage from "../pages/Start/StartPage";
 import type { GameStateResponse } from "../types/api";
 import ScoreDisplay from "../components/game/ScoreDisplay";
@@ -15,6 +17,7 @@ let host: HTMLDivElement;
 let session: ReturnType<typeof useSession>;
 let score: ReturnType<typeof useScore>;
 let attempt: ReturnType<typeof useAttempt>;
+const feedback = { success: vi.fn(), error: vi.fn(), clear: vi.fn() };
 const state = (extra: Partial<GameStateResponse> = {}): GameStateResponse => ({
   playerId: "p1", journeyId: "j1", revision: 1, totalScore: 400, hasProgress: true, checkpoints: {}, medals: [],
   progress: { regions: [{ regionId: "norte", name: "Norte", status: "unlocked", unlockedAt: null, completedAt: null }], levels: [] }, ...extra,
@@ -28,10 +31,11 @@ function mount(path = "/") {
   root.render(<StrictMode><MemoryRouter initialEntries={[path]}><SessionProvider><ScoreProvider><Probe /><Routes>
     <Route path="/" element={<StartPage />} /><Route path="/mapa" element={<p>MAPA CARREGADO</p>} />
     <Route element={<RegionBoundary regionId="bonus" />}><Route path="/missao/bonus" element={<p>BONUS LIBERADO</p>} /></Route>
+    <Route element={<SessionBoundary />}><Route path="/missao/norte" element={<GameFeedbackContext.Provider value={feedback}><NorthPhase /></GameFeedbackContext.Provider>} /></Route>
   </Routes></ScoreProvider></SessionProvider></MemoryRouter></StrictMode>);
 }
-function setupFetch(options: { failState?: boolean; failCompleteOnce?: boolean; failReset?: boolean; savedTotal?: number; savedScore?: number } = {}) {
-  let current = state(); let completedCalls = 0;
+function setupFetch(options: { failState?: boolean; failCompleteOnce?: boolean; failReset?: boolean; savedTotal?: number; savedScore?: number; missingCheckpoints?: boolean } = {}) {
+  let current = state(options.missingCheckpoints ? { checkpoints: undefined } : {}); let completedCalls = 0;
   const mock = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
     const path = String(url);
     if (path.endsWith("/session/bootstrap")) return Response.json({ data: { playerId: "p1", created: false, expiresAt: "2026-11-12" } });
@@ -63,6 +67,24 @@ beforeEach(() => {
 });
 afterEach(async () => { await settle(() => root.unmount()); host.remove(); vi.unstubAllGlobals(); localStorage.clear(); });
 describe("fluxo da jornada no React", () => {
+  it("aceita resposta antiga sem checkpoints e inicia a tentativa sem perder o total", async () => {
+    setupFetch({ missingCheckpoints: true }); await settle(() => mount());
+    expect(session.gameState?.checkpoints).toEqual({});
+    expect(score.score).toBe(400);
+    await settle(async () => { expect(await attempt.startAttempt(1)).toBe(true); });
+    expect(session.gameState?.checkpoints).toEqual({});
+    expect(score.score).toBe(400);
+  });
+  it("abre o Norte e começa o primeiro nível quando a API omite checkpoints", async () => {
+    const { mock } = setupFetch({ missingCheckpoints: true });
+    await settle(() => mount("/missao/norte"));
+    expect(button("Começar").disabled).toBe(false);
+    await settle(() => button("Começar").click());
+    expect(host.querySelector('.north-phase')).not.toBeNull();
+    const request = mock.mock.calls.find(([url]) => String(url).endsWith("/attempts"));
+    expect(JSON.parse(String(request?.[1]?.body))).toMatchObject({ regionId: "norte", levelNumber: 1 });
+    expect(session.gameState?.totalScore).toBe(400);
+  });
   it("mostra acertos e erros imediatamente, limita em zero e descarta só a rodada", async () => {
     setupFetch(); await settle(() => mount());
     await settle(() => attempt.startAttempt(1));

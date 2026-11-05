@@ -141,7 +141,7 @@ export default function SouthPhase() {
   const { status: sessionStatus, retryBootstrap, gameState } = useSession();
   const { startAttempt, completeAttempt } = useAttempt("sul");
 
-  const [stageIndex, setStageIndex] = useState(() => Math.max(0, (gameState?.checkpoints.sul?.nextLevelNumber ?? 1) - 1));
+  const [stageIndex, setStageIndex] = useState(() => Math.max(0, (gameState?.checkpoints?.sul?.nextLevelNumber ?? 1) - 1));
   const [foundIds, setFoundIds] = useState<number[]>([]);
   const [gameStatus, setGameStatus] = useState<GameStatus>("intro");
   const [message, setMessage] = useState("");

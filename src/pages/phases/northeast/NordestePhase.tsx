@@ -183,7 +183,7 @@ function NordestePhase() {
   const { addPoints, discardRound } = useScore();
   const { startAttempt, completeAttempt } = useAttempt("nordeste");
   const { status, gameState, retryBootstrap } = useSession();
-  const [checkpoint] = useState(() => gameState?.checkpoints.nordeste);
+  const [checkpoint] = useState(() => gameState?.checkpoints?.nordeste);
   const levelScoreRef = useRef(0);
   const levelCorrectRef = useRef(0);
   const levelIncorrectRef = useRef(0);

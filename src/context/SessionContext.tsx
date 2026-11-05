@@ -26,7 +26,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const playerRef = useRef<string | null>(null);
   const acceptedStateRef = useRef<GameStateResponse | null>(null);
 
-  const acceptState = useCallback((state: GameStateResponse) => {
+  const acceptState = useCallback((response: GameStateResponse) => {
+    // APIs antigas podem omitir checkpoints; o contrato interno sempre é um mapa.
+    const state = { ...response, checkpoints: response.checkpoints ?? {} };
     const previous = acceptedStateRef.current;
     if (previous?.playerId === state.playerId && previous.revision > state.revision) return previous;
     acceptedStateRef.current = state;
