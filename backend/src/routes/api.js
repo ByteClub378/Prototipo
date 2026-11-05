@@ -64,8 +64,8 @@ router.delete("/me/progress", writeLimiter, auth, async (request, response) => {
     if (request.header("x-confirm-reset") !== "RESET") {
         throw new ApiError(400, "RESET_CONFIRMATION_REQUIRED", "Envie o cabeçalho X-Confirm-Reset: RESET.");
     }
-    await games.resetProgress(request.auth.playerId);
-    response.status(204).send();
+    const state = await games.resetProgress(request.auth.playerId);
+    response.json({ data: state });
 });
 router.delete("/me", writeLimiter, auth, async (request, response) => {
     if (request.header("x-confirm-delete") !== "DELETE") {

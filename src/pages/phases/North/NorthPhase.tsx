@@ -53,7 +53,7 @@ function NorthPhase() {
   const { addPoints, discardRound } = useScore();
   const { startAttempt, completeAttempt } = useAttempt("norte");
   const { status, gameState, retryBootstrap } = useSession();
-  const [checkpoint] = useState(() => gameState?.checkpoints.norte);
+  const [checkpoint] = useState(() => gameState?.checkpoints?.norte);
 
   // Contadores da tentativa ATUAL (resetam a cada nível) — usados só pro
   // PATCH /attempts/{id}/complete, não se confundem com o placar global.

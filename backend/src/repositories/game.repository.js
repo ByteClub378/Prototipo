@@ -1,187 +1,157 @@
+import { randomUUID } from "node:crypto";
 import { Timestamp } from "firebase-admin/firestore";
 import { db } from "../database/firebase.js";
-import { LEVELS, MEDALS, REGIONS, initialProgress, levelId, meetsPassingAccuracy, minimumScore, usesPhaseAccuracy } from "../database/catalog.js";
+import { LEVELS, MEDALS, REGIONS, initialProgress, levelId, minimumScore, meetsPassingAccuracy, usesPhaseAccuracy } from "../database/catalog.js";
+import { assertUnlocked, journeyIdOf, newJourney, nextCheckpoint, totalScoreOf, unlock, validateAnswers } from "../domain/journey.js";
 import { ApiError } from "../utils/api-error.js";
 
-const date = (value) => value?.toDate?.() ?? value ?? null;
-
+const date = value => value?.toDate?.() ?? value ?? null;
 function normalizedProgress(data) {
   const initial = initialProgress();
-  const regions = { ...initial.regions, ...(data.regions ?? {}) };
-  const levels = { ...initial.levels, ...(data.levels ?? {}) };
-
+  const regions = { ...initial.regions, ...data.regions };
+  const levels = { ...initial.levels, ...data.levels };
   for (const region of REGIONS) {
-    const firstLevelId = levelId(region.id, 1);
-    if (regions[region.id]?.status !== "locked" && levels[firstLevelId]?.status === "locked") {
-      levels[firstLevelId] = {
-        ...levels[firstLevelId],
-        status: "unlocked",
-        unlockedAt: regions[region.id].unlockedAt ?? null,
-      };
+    const id = levelId(region.id, 1);
+    if (regions[region.id].status !== "locked" && levels[id].status === "locked") {
+      levels[id] = unlock(levels[id], regions[region.id].unlockedAt);
     }
   }
-
+  if (REGIONS.every(region => regions[region.id].status === "completed")) {
+    levels.bonus_1 = unlock(levels.bonus_1, null);
+  }
   return { regions, levels };
 }
-
+function stateOf(data) {
+  const { regions, levels } = normalizedProgress(data);
+  const serialize = item => ({ ...item, unlockedAt: date(item.unlockedAt), completedAt: date(item.completedAt) });
+  return {
+    playerId: data.publicId, journeyId: journeyIdOf(data), revision: data.revision ?? 1,
+    totalScore: totalScoreOf(levels),
+    hasProgress: Object.values(levels).some(level => level.attemptCount > 0 || level.bestScore > 0 || level.status === "completed") || Object.keys(data.medals ?? {}).length > 0 || Object.keys(data.checkpoints ?? {}).length > 0,
+    checkpoints: data.checkpoints ?? {},
+    progress: {
+      regions: REGIONS.map(region => serialize({ regionId: region.id, name: region.name, ...regions[region.id] })),
+      levels: LEVELS.map(level => serialize({ ...level, ...levels[levelId(level.regionId, level.levelNumber)] })),
+    },
+    medals: MEDALS.filter(medal => data.medals?.[medal.id]).map(medal => ({ ...medal, awardedAt: date(data.medals[medal.id].awardedAt) })),
+  };
+}
 export class GameRepository {
   async loadPlayer(playerId) {
     const player = await db.collection("players").doc(playerId).get();
     if (!player.exists) throw new ApiError(401, "SESSION_INVALID", "Jogador da sessão não existe mais.");
     return player;
   }
+  async getState(playerId) { return stateOf((await this.loadPlayer(playerId)).data()); }
+  async getProgress(playerId) { return (await this.getState(playerId)).progress; }
+  async getMedals(playerId) { return (await this.getState(playerId)).medals; }
 
-  async getProgress(playerId) {
-    const player = await this.loadPlayer(playerId);
-    const data = player.data();
-    const normalized = normalizedProgress(data);
-    return {
-      regions: REGIONS.map((region) => ({ regionId: region.id, name: region.name, ...normalized.regions[region.id], unlockedAt: date(normalized.regions[region.id]?.unlockedAt), completedAt: date(normalized.regions[region.id]?.completedAt) })),
-      levels: LEVELS.map((level) => ({ ...level, ...normalized.levels[levelId(level.regionId, level.levelNumber)], unlockedAt: date(normalized.levels[levelId(level.regionId, level.levelNumber)]?.unlockedAt), completedAt: date(normalized.levels[levelId(level.regionId, level.levelNumber)]?.completedAt) })),
-    };
-  }
-
-  async getState(playerId) {
-    const player = await this.loadPlayer(playerId);
-    const data = player.data();
-    const normalized = normalizedProgress(data);
-    const progress = {
-      regions: REGIONS.map((region) => ({ regionId: region.id, name: region.name, ...normalized.regions[region.id], unlockedAt: date(normalized.regions[region.id]?.unlockedAt), completedAt: date(normalized.regions[region.id]?.completedAt) })),
-      levels: LEVELS.map((level) => ({ ...level, ...normalized.levels[levelId(level.regionId, level.levelNumber)], unlockedAt: date(normalized.levels[levelId(level.regionId, level.levelNumber)]?.unlockedAt), completedAt: date(normalized.levels[levelId(level.regionId, level.levelNumber)]?.completedAt) })),
-    };
-    const medals = MEDALS.filter((medal) => data.medals?.[medal.id]).map((medal) => ({ ...medal, awardedAt: date(data.medals[medal.id].awardedAt) }));
-    return { playerId: data.publicId, revision: data.revision ?? 1, progress, medals };
-  }
-
-  async startAttempt(playerId, attemptId, regionId, levelNumber) {
-    const level = LEVELS.find((item) => item.regionId === regionId && item.levelNumber === levelNumber);
-    if (!level) throw new ApiError(404, "LEVEL_NOT_FOUND", "Nível inexistente ou indisponível.");
-    return { attemptId, status: "accepted", minScore: minimumScore(level), maxScore: level.maxScore, persisted: false, idempotent: true };
+  async startAttempt(playerId, attemptId, regionId, levelNumber, expectedJourneyId, requestedRunId) {
+    const level = LEVELS.find(item => item.regionId === regionId && item.levelNumber === levelNumber);
+    if (!level) throw new ApiError(404, "LEVEL_NOT_FOUND", "Nível inexistente.");
+    const playerRef = db.collection("players").doc(playerId);
+    const attemptRef = db.collection("attempts").doc(attemptId);
+    return db.runTransaction(async transaction => {
+      const [player, attempt] = await Promise.all([transaction.get(playerRef), transaction.get(attemptRef)]);
+      if (!player.exists) throw new ApiError(401, "SESSION_INVALID", "Jogador inexistente.");
+      const data = player.data();
+      const journeyId = journeyIdOf(data);
+      if (expectedJourneyId && expectedJourneyId !== journeyId) throw new ApiError(409, "JOURNEY_CHANGED", "A jornada mudou. Atualize a página.");
+      const current = attempt.exists ? attempt.data() : null;
+      const id = levelId(regionId, levelNumber);
+      if (current) {
+        if (current.playerId !== playerId || current.levelId !== id || current.journeyId !== journeyId) throw new ApiError(409, "ATTEMPT_ID_CONFLICT", "Tentativa incompatível.");
+        return { attemptId, runId: current.runId, journeyId, status: "accepted", persisted: true, idempotent: true };
+      }
+      const { levels, regions } = normalizedProgress(data);
+      assertUnlocked({ ...data, regions }, levels, regionId, id);
+      const checkpoints = { ...data.checkpoints };
+      const checkpoint = checkpoints[regionId];
+      const continuing = checkpoint && checkpoint.nextLevelNumber === levelNumber && checkpoint.runId === requestedRunId;
+      if (levelNumber > 1 && !continuing) throw new ApiError(409, "CHECKPOINT_REQUIRED", "Retome a rodada salva ou comece pela primeira rodada.");
+      const now = Timestamp.now();
+      const runId = continuing ? checkpoint.runId : randomUUID();
+      checkpoints[regionId] = continuing ? checkpoint : { runId, nextLevelNumber: levelNumber, correctAnswers: 0, incorrectAnswers: 0 };
+      transaction.create(attemptRef, { playerId, journeyId, runId, regionId, levelNumber, levelId: id, status: "started", startedAt: now });
+      transaction.update(playerRef, { checkpoints, revision: (data.revision ?? 1) + 1, lastSeenAt: now });
+      return { attemptId, runId, journeyId, status: "accepted", persisted: true, minScore: minimumScore(level), maxScore: level.maxScore, idempotent: false };
+    });
   }
 
   async completeAttempt(playerId, attemptId, input) {
     const playerRef = db.collection("players").doc(playerId);
     const attemptRef = db.collection("attempts").doc(attemptId);
-    return db.runTransaction(async (transaction) => {
+    return db.runTransaction(async transaction => {
       const [player, attempt] = await Promise.all([transaction.get(playerRef), transaction.get(attemptRef)]);
-      if (!player.exists) throw new ApiError(401, "SESSION_INVALID", "Jogador da sessão não existe mais.");
-      const current = attempt.exists ? attempt.data() : null;
-      if (current && current.playerId !== playerId) throw new ApiError(409, "ATTEMPT_ID_CONFLICT", "O identificador da tentativa já está em uso.");
-      const requestedLevelId = levelId(input.regionId, input.levelNumber);
-      if (current && current.levelId !== requestedLevelId) throw new ApiError(409, "ATTEMPT_ID_CONFLICT", "A tentativa pertence a outro nível.");
-      const level = LEVELS.find((item) => item.regionId === input.regionId && item.levelNumber === input.levelNumber);
-      if (!level) throw new ApiError(404, "LEVEL_NOT_FOUND", "Nível inexistente ou indisponível.");
-      if (input.score > level.maxScore) throw new ApiError(400, "SCORE_OUT_OF_RANGE", `A pontuação máxima deste nível é ${level.maxScore}.`);
-      const nextLevel = LEVELS.find((item) => item.regionId === input.regionId && item.levelNumber === input.levelNumber + 1);
-      const minScore = minimumScore(level);
-      const phaseAccuracyEnabled = usesPhaseAccuracy(input.regionId);
-      const intermediateRound = phaseAccuracyEnabled && Boolean(nextLevel);
-      const finalRound = phaseAccuracyEnabled && !nextLevel;
-
-      if (finalRound) {
-        if (input.missionCorrectAnswers === undefined || input.missionIncorrectAnswers === undefined) {
-          throw new ApiError(400, "MISSION_TOTALS_REQUIRED", "Envie os totais de respostas da fase completa.");
-        }
-
-        const expectedAnswers = LEVELS
-          .filter((item) => item.regionId === input.regionId)
-          .reduce((total, item) => total + item.questionCount, 0);
-        const receivedAnswers = input.missionCorrectAnswers + input.missionIncorrectAnswers;
-
-        if (receivedAnswers !== expectedAnswers) {
-          throw new ApiError(400, "MISSION_TOTALS_INVALID", `A fase ${input.regionId} deve registrar exatamente ${expectedAnswers} respostas.`);
-        }
-      }
-
-      const passed = intermediateRound
-        ? true
-        : finalRound
-          ? meetsPassingAccuracy(input.missionCorrectAnswers, input.missionIncorrectAnswers)
-          : input.score >= minScore;
-      if (current?.status === "completed") {
-        const differs = current.score !== input.score || current.correctAnswers !== input.correctAnswers || current.incorrectAnswers !== input.incorrectAnswers || current.missionCorrectAnswers !== input.missionCorrectAnswers || current.missionIncorrectAnswers !== input.missionIncorrectAnswers || JSON.stringify(current.topicResults ?? []) !== JSON.stringify(input.topicResults ?? []) || current.durationSeconds !== input.durationSeconds;
-        if (differs) throw new ApiError(409, "ATTEMPT_ALREADY_COMPLETED", "A tentativa já foi concluída com outros dados.");
-        return {
-          attemptId,
-          status: "completed",
-          score: current.score,
-          passed: current.passed ?? passed,
-          minScore,
-          maxScore: level.maxScore,
-          revision: player.data().revision ?? 1,
-          awardedMedals: current.awardedMedals ?? [],
-          idempotent: true,
-        };
-      }
+      if (!player.exists) throw new ApiError(401, "SESSION_INVALID", "Jogador inexistente.");
+      if (!attempt.exists) throw new ApiError(409, "ATTEMPT_NOT_STARTED", "Inicie uma nova tentativa.");
       const data = player.data();
+      const current = attempt.data();
+      const id = levelId(input.regionId, input.levelNumber);
+      if (current.playerId !== playerId || current.levelId !== id) throw new ApiError(409, "ATTEMPT_ID_CONFLICT", "Tentativa incompatível.");
+      if (current.journeyId !== journeyIdOf(data)) throw new ApiError(409, "JOURNEY_CHANGED", "Esta tentativa pertence à jornada anterior.");
+      if (current.status === "completed") {
+        if (JSON.stringify(current.resultInput) !== JSON.stringify(input)) throw new ApiError(409, "ATTEMPT_ALREADY_COMPLETED", "Resultado já salvo com outros dados.");
+        return { ...current.resultResponse, idempotent: true };
+      }
+      const level = LEVELS.find(item => item.regionId === input.regionId && item.levelNumber === input.levelNumber);
+      if (!level) throw new ApiError(404, "LEVEL_NOT_FOUND", "Nível inexistente.");
+      validateAnswers(level, input);
+      const { regions, levels } = normalizedProgress(data);
+      assertUnlocked({ ...data, regions }, levels, input.regionId, id);
+      const checkpoints = { ...data.checkpoints };
+      const checkpoint = checkpoints[input.regionId];
+      if (!checkpoint || checkpoint.runId !== current.runId || checkpoint.nextLevelNumber !== input.levelNumber) throw new ApiError(409, "RUN_CHANGED", "Uma nova tentativa substituiu esta rodada.");
+      const correct = checkpoint.correctAnswers + input.correctAnswers;
+      const incorrect = checkpoint.incorrectAnswers + input.incorrectAnswers;
+      const nextLevel = LEVELS.find(item => item.regionId === input.regionId && item.levelNumber === input.levelNumber + 1);
+      const accuracy = usesPhaseAccuracy(input.regionId);
+      if (accuracy && !nextLevel && (input.missionCorrectAnswers !== correct || input.missionIncorrectAnswers !== incorrect)) throw new ApiError(400, "MISSION_TOTALS_INVALID", "Os totais devem corresponder às rodadas salvas desta tentativa.");
+      const passed = accuracy ? Boolean(nextLevel) || meetsPassingAccuracy(correct, incorrect) : input.score >= minimumScore(level);
       const now = Timestamp.now();
-      const normalized = normalizedProgress(data);
-      const progress = normalized.levels;
-      const currentProgress = progress[requestedLevelId];
-      if (!currentProgress || currentProgress.status === "locked") throw new ApiError(403, "LEVEL_LOCKED", "Este nível ainda está bloqueado.");
-      const attemptNumber = currentProgress.attemptCount + 1;
-      progress[requestedLevelId] = {
-        ...currentProgress,
-        status: passed ? "completed" : currentProgress.status,
-        attemptCount: attemptNumber,
-        bestScore: Math.max(currentProgress.bestScore, input.score),
-        completedAt: passed ? currentProgress.completedAt ?? now : currentProgress.completedAt,
-      };
-      const regions = normalized.regions;
-      const medals = { ...(data.medals ?? {}) };
+      const before = levels[id];
+      levels[id] = { ...before, status: passed ? "completed" : before.status, bestScore: Math.max(before.bestScore, input.score), attemptCount: before.attemptCount + 1, completedAt: passed ? before.completedAt ?? now : before.completedAt };
+      const medals = { ...data.medals };
       const awardedMedals = [];
       if (passed && nextLevel) {
-        const id = levelId(nextLevel.regionId, nextLevel.levelNumber);
-        progress[id] = { ...progress[id], status: progress[id].status === "locked" ? "unlocked" : progress[id].status, unlockedAt: progress[id].unlockedAt ?? now };
-      } else if (passed) {
-        const complete = LEVELS.filter((item) => item.regionId === input.regionId).every((item) => progress[levelId(item.regionId, item.levelNumber)]?.status === "completed");
+        const nextId = levelId(nextLevel.regionId, nextLevel.levelNumber);
+        levels[nextId] = unlock(levels[nextId], now);
+      } else if (passed && input.regionId !== "bonus") {
+        const complete = LEVELS.filter(item => item.regionId === input.regionId).every(item => levels[levelId(item.regionId, item.levelNumber)].status === "completed");
         if (complete) {
           regions[input.regionId] = { ...regions[input.regionId], status: "completed", completedAt: regions[input.regionId].completedAt ?? now };
-          const region = REGIONS.find((item) => item.id === input.regionId);
-          const nextRegion = REGIONS.find((item) => item.sortOrder === region.sortOrder + 1);
+          const region = REGIONS.find(item => item.id === input.regionId);
+          const nextRegion = REGIONS.find(item => item.sortOrder === region.sortOrder + 1);
           if (nextRegion) {
-            regions[nextRegion.id] = { ...regions[nextRegion.id], status: "unlocked", unlockedAt: regions[nextRegion.id].unlockedAt ?? now };
-            const firstNextLevel = levelId(nextRegion.id, 1);
-            if (progress[firstNextLevel]) {
-              progress[firstNextLevel] = { ...progress[firstNextLevel], status: "unlocked", unlockedAt: progress[firstNextLevel].unlockedAt ?? now };
-            }
+            regions[nextRegion.id] = unlock(regions[nextRegion.id], now);
+            const nextId = levelId(nextRegion.id, 1);
+            levels[nextId] = unlock(levels[nextId], now);
           }
-          for (const medal of MEDALS.filter((item) => item.regionId === input.regionId && item.criterionType === "region_complete")) {
+          for (const medal of MEDALS.filter(item => item.regionId === input.regionId)) {
             if (!medals[medal.id]) { medals[medal.id] = { awardedAt: now }; awardedMedals.push(medal.id); }
           }
+          if (REGIONS.every(item => regions[item.id].status === "completed")) levels.bonus_1 = unlock(levels.bonus_1, now);
         }
       }
-      const attemptData = { ...input, playerId, levelId: requestedLevelId, attemptNumber, status: "completed", passed, minScore, maxScore: level.maxScore, awardedMedals, startedAt: now, completedAt: now };
-      if (attempt.exists) transaction.update(attemptRef, attemptData); else transaction.create(attemptRef, attemptData);
-      transaction.update(playerRef, {
-        levels: progress,
-        regions,
-        medals,
-        revision: (data.revision ?? 1) + 1,
-        lastSeenAt: now,
-        hasPlayed: true,
-        firstPlayedAt: data.firstPlayedAt ?? now,
-        completedAttemptCount: (data.completedAttemptCount ?? 0) + 1,
-      });
-      return { attemptId, status: "completed", score: input.score, passed, minScore, maxScore: level.maxScore, revision: (data.revision ?? 1) + 1, idempotent: false, awardedMedals };
+      const next = nextCheckpoint(input.regionId, input.levelNumber, current.runId, correct, incorrect, passed);
+      if (next) checkpoints[input.regionId] = next; else delete checkpoints[input.regionId];
+      const revision = (data.revision ?? 1) + 1;
+      const response = { attemptId, status: "completed", score: input.score, passed, minScore: minimumScore(level), maxScore: level.maxScore, revision, idempotent: false, awardedMedals };
+      transaction.update(attemptRef, { ...input, resultInput: input, resultResponse: response, status: "completed", passed, attemptNumber: before.attemptCount + 1, awardedMedals, completedAt: now });
+      transaction.update(playerRef, { levels, regions, medals, checkpoints, revision, lastSeenAt: now, hasPlayed: true, firstPlayedAt: data.firstPlayedAt ?? now, completedAttemptCount: (data.completedAttemptCount ?? 0) + 1 });
+      return response;
     });
   }
 
-  async getMedals(playerId) {
-    const player = await this.loadPlayer(playerId);
-    const medals = player.data().medals ?? {};
-    return MEDALS.filter((medal) => medals[medal.id]).map((medal) => ({ ...medal, awardedAt: date(medals[medal.id].awardedAt) }));
-  }
-
   async resetProgress(playerId) {
-    const attempts = await db.collection("attempts").where("playerId", "==", playerId).get();
-    const writer = db.bulkWriter();
-    attempts.docs.forEach((doc) => writer.delete(doc.ref));
-    await writer.close();
-    await db.runTransaction(async (transaction) => {
-      const ref = db.collection("players").doc(playerId);
+    // Mantém tentativas históricas para o painel; troca a jornada atomicamente.
+    const ref = db.collection("players").doc(playerId);
+    return db.runTransaction(async transaction => {
       const player = await transaction.get(ref);
-      transaction.update(ref, { ...initialProgress(), revision: (player.data().revision ?? 1) + 1, lastSeenAt: Timestamp.now() });
+      if (!player.exists) throw new ApiError(401, "SESSION_INVALID", "Jogador inexistente.");
+      const update = newJourney(player.data(), Timestamp.now());
+      transaction.update(ref, update);
+      return stateOf({ ...player.data(), ...update });
     });
   }
 }

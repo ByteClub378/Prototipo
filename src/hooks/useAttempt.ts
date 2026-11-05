@@ -21,7 +21,7 @@ export function useAttempt(regionId: AttemptRegion) {
   const { gameState, refreshState } = useSession();
   const { beginRound, discardRound, confirmRound } = useScore();
   const journeyId = gameState?.journeyId;
-  const checkpoint = gameState?.checkpoints[regionId];
+  const checkpoint = gameState?.checkpoints?.[regionId];
   const attemptRef = useRef<{ id: string; level: number; startedAt: number } | null>(null);
   const runRef = useRef<string | undefined>(undefined);
   const completionRef = useRef<StoredCompleteAttempt | null>(null);
