@@ -69,3 +69,6 @@ h2,
 h3 {
   color: var(--color-text);
 }
+
+.journey-message { margin: 16px; padding: 18px; border-radius: 14px; color: #173b32; background: #fff5cc; line-height: 1.5; }
+.journey-message button,.journey-message a { display: inline-block; padding: 10px 14px; color: #fff; background: #226b42; border-radius: 8px; border: 0; cursor: pointer; }

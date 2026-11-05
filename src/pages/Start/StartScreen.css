@@ -87,3 +87,9 @@
   .adventure-start__shell { height: auto; min-height: 100%; }
 }
 @media (prefers-reduced-motion: reduce) { .adventure-start__button { transition: none; } }
+
+.adventure-start__message,.adventure-start__confirmation { padding: 14px; border-radius: 12px; background: #173b32; color: #fff; line-height: 1.5; }
+.adventure-start__confirmation h2 { font-size: 1.1rem; }
+.adventure-start__confirmation button,.adventure-start__message button { padding: 10px 14px; margin: 6px 6px 0 0; background: #ffdc66; color: #173b32; border: 0; border-radius: 8px; cursor: pointer; }
+.adventure-start:has(.adventure-start__confirmation),.adventure-start:has(.adventure-start__message) { overflow-y: auto; }
+.adventure-start:has(.adventure-start__confirmation) .adventure-start__shell,.adventure-start:has(.adventure-start__message) .adventure-start__shell { height: auto; min-height: 100svh; }

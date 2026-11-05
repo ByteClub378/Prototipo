@@ -19,7 +19,9 @@
     "test:backend": "vitest run backend/src",
     "build:backend": "npm run lint:backend",
     "firebase:seed": "node backend/src/database/seed.js",
-    "db:cleanup": "node backend/src/database/cleanup.js"
+    "db:cleanup": "node backend/src/database/cleanup.js",
+    "test": "vitest run",
+    "assets:optimize": "node scripts/optimize-images.cjs"
   },
   "dependencies": {
     "canvas-confetti": "^1.9.4",
@@ -47,6 +49,8 @@
     "supertest": "^7.1.4",
     "typescript": "~6.0.2",
     "vite": "^8.2.2",
-    "vitest": "^4.0.13"
+    "vitest": "^4.0.13",
+    "jsdom": "^26.1.0",
+    "sharp": "^0.35.5"
   }
 }

@@ -1,24 +1,67 @@
 .centro-oeste-phase {
   display: flex;
   flex-direction: column;
-  gap: var(--space-lg);
+  gap: 1rem;
   max-width: 1440px;
   margin: 0 auto;
   color: #4c3517;   
+}
+
+.centro-oeste-phase__viewport {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  min-width: 0;
+}
+
+.centro-oeste-phase--playing .centro-oeste-phase__viewport {
+  display: grid;
+  grid-template-rows: auto auto minmax(180px, 1fr);
+  height: calc(100dvh - 2 * clamp(0.65rem, 1.5vw, 1.5rem));
+  min-height: 400px;
+}
+
+.centro-oeste-phase__toolbar {
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr) minmax(170px, 0.45fr) minmax(280px, 0.7fr);
+  align-items: stretch;
+  gap: 0.65rem;
+}
+
+.centro-oeste-phase__toolbar .score-display {
+  align-self: stretch;
+  gap: 0.4rem;
+  padding: 0.5rem;
+}
+
+.centro-oeste-phase__toolbar .score-display__icon { display: none; }
+.centro-oeste-phase__toolbar .score-display__total { flex-basis: 120px; }
+
+.centro-oeste-phase__toolbar .mission-timer {
+  align-self: center;
+  width: 100%;
+  padding: 0.6rem;
+}
+
+.centro-oeste-phase__scene {
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  min-height: 0;
 }
 
 .centro-oeste-phase__header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-xl);
-  padding-bottom: var(--space-lg);
+  gap: 1rem;
+  padding-bottom: 0.5rem;
   border-bottom: 1px solid #ded4b8;
 }
 
 .centro-oeste-phase__header h1 {
   color: #2f220f;
-  font-size: clamp(1.7rem, 4vw, 2.5rem);
+  font-size: clamp(1.2rem, 2vw, 1.65rem);
 }
 
 .centro-oeste-phase__header p {
@@ -27,7 +70,7 @@
 }
 
 .centro-oeste-phase__progress {
-  width: min(320px, 100%);
+  width: min(200px, 100%);
   flex: 0 0 auto;
 }
 
@@ -65,7 +108,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-lg);
+  gap: 0.65rem;
+  padding: 0.65rem;
   border: 2px solid #e5ad21;
   background: #fff7d9;
 }
@@ -81,7 +125,7 @@
 
 .centro-oeste-phase__mission-card h2 {
   color: #3b2a10;
-  font-size: clamp(1.2rem, 3vw, 1.6rem);
+  font-size: 1.1rem;
 }
 
 .centro-oeste-phase__mission-card p {
@@ -109,10 +153,9 @@
 
 .centro-oeste-phase__map {
   position: relative;
-  overflow: hidden;
-  width: 100%;
-  border: 5px solid #bd6d1d;
-  border-radius: 26px;
+  flex: none;
+  outline: 3px solid #bd6d1d;
+  border-radius: 8px;
   background: #d7a85d;
   box-shadow: 0 12px 30px rgba(91, 54, 13, 0.2);
   cursor: crosshair;
@@ -123,6 +166,7 @@
   display: block;
   width: 100%;
   height: auto;
+  border-radius: inherit;
   pointer-events: none;
 }
 
@@ -305,20 +349,39 @@
   padding: var(--space-md);
   background: rgba(31, 24, 13, 0.58);
   backdrop-filter: blur(3px);
+  animation: centro-oeste-dialog-in 0.18s ease both;
 }
 
 .centro-oeste-phase__dialog {
   width: min(560px, 100%);
-  max-height: calc(100vh - 2rem);
-  overflow-y: auto;
-  padding: clamp(1.25rem, 4vw, 2rem);
+  max-height: calc(100dvh - 2rem);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
   border: 3px solid #d39320;
   border-radius: var(--radius-lg);
   background: #fffdf3;
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.3);
   text-align: center;
-  animation: centro-oeste-dialog-in 0.22s ease both;
 }
+
+.centro-oeste-phase__dialog-content {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: clamp(1rem, 3vw, 1.75rem);
+}
+
+.centro-oeste-phase__dialog-actions {
+  flex-shrink: 0;
+  padding: 0.75rem 1rem;
+  border-top: 1px solid #ded4b8;
+  background: #fffdf3;
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+}
+
+.centro-oeste-phase__dialog-actions button { width: 100%; min-height: 44px; }
+.centro-oeste-phase__dialog:focus-visible { outline: 3px solid var(--color-green); outline-offset: 3px; }
 
 .centro-oeste-phase__dialog-icon {
   font-size: 4rem;
@@ -338,7 +401,7 @@
 }
 
 .centro-oeste-phase__dialog button {
-  margin-top: var(--space-lg);
+  margin-top: 0;
 }
 
 .centro-oeste-phase__preservation {
@@ -353,15 +416,22 @@
 @keyframes centro-oeste-dialog-in {
   from {
     opacity: 0;
-    transform: translateY(18px) scale(0.96);
   }
   to {
     opacity: 1;
-    transform: translateY(0) scale(1);
   }
 }
 
 @media (max-width: 900px) {
+  .centro-oeste-phase--playing .centro-oeste-phase__viewport {
+    display: flex;
+    height: auto;
+    min-height: 0;
+  }
+
+  .centro-oeste-phase__toolbar { grid-template-columns: 1fr 1fr; }
+  .centro-oeste-phase__mission-card { grid-column: 1 / -1; }
+  .centro-oeste-phase__scene { aspect-ratio: 1280 / 853; width: 100%; }
   .centro-oeste-phase__header {
     align-items: flex-start;
     flex-direction: column;
@@ -380,17 +450,19 @@
   }
 }
 
+@media (min-width: 901px) and (max-width: 1100px) {
+  .centro-oeste-phase__toolbar { grid-template-columns: minmax(0, 1fr) minmax(280px, 1fr); }
+  .centro-oeste-phase__mission-card { grid-column: 1 / -1; }
+}
+
 @media (max-width: 600px) {
+  .centro-oeste-phase__toolbar { grid-template-columns: 1fr; }
+  .centro-oeste-phase__toolbar .score-display { width: 100%; }
   .centro-oeste-phase__mission-card {
     align-items: flex-start;
     flex-direction: column;
   }
 
-  .centro-oeste-phase__map {
-    overflow-x: auto;
-    border-width: 3px;
-    border-radius: var(--radius-md);
-  }
 
   .centro-oeste-phase__album-grid {
     gap: var(--space-sm);
@@ -410,49 +482,5 @@
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }
-}
-
-@media (min-width: 901px) {
-  .centro-oeste-phase__map {
-    width: min(100%, 850px);
-    margin-inline: auto;
-  }
-}
-
-/* Mantém a missão visível enquanto o jogador observa o mapa */
-@media (min-width: 901px) {
-  .centro-oeste-phase__topline {
-    position: sticky;
-    top: 12px;
-    z-index: 50;
-
-    width: 850px;
-    max-width: 100%;
-    align-self: center;
-    margin-inline: auto;
-    padding: 0.4rem;
-
-    border-radius: var(--radius-md);
-    background: rgba(245, 247, 245, 0.94);
-    backdrop-filter: blur(8px);
-  }
-
-  /* Deixa o cartão mais compacto */
-  .centro-oeste-phase__mission-card {
-    padding: 0.75rem 1rem;
-  }
-
-  .centro-oeste-phase__mission-card h2 {
-    font-size: 1.15rem;
-  }
-
-  .centro-oeste-phase__mission-card p {
-    margin-top: 0.2rem;
-    font-size: 0.9rem;
-  }
-
-  .centro-oeste-phase__eyebrow {
-    margin-bottom: 0.2rem;
-    font-size: 0.72rem;
-  }
+  .centro-oeste-phase__dialog-backdrop { animation: none; }
 }

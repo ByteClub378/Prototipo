@@ -9,8 +9,8 @@ function NewMissionButton() {
       className="new-mission-button"
       type="button"
       onClick={() => navigate("/mapa")}
-      aria-label="Nova missão"
-      title="Nova missão"
+      aria-label="Escolher missão"
+      title="Escolher missão"
     >
       <svg
         width="20"
@@ -25,7 +25,7 @@ function NewMissionButton() {
       >
         <path d="M12 5v14M5 12h14" />
       </svg>
-      <span className="new-mission-button__label">Nova Missão</span>
+      <span className="new-mission-button__label">Escolher missão</span>
     </button>
   );
 }

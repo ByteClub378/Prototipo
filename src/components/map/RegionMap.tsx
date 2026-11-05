@@ -40,8 +40,8 @@ function RegionMap() {
       <svg
         viewBox={MAP_VIEWBOX}
         className="region-map__svg"
-        role="img"
-        aria-label="Mapa do Brasil com as cinco regiões"
+        role="group"
+        aria-label="Mapa interativo do Brasil com as cinco regiões"
       >
         {REGIONS.map((region) => {
           const status = getStatus(region.id);
@@ -56,8 +56,9 @@ function RegionMap() {
                 isClickable ? "region-map__region--clickable" : ""
               }`}
               onClick={() => handleRegionClick(region.id, status)}
-              tabIndex={isClickable ? 0 : -1}
-              role={isClickable ? "button" : undefined}
+              tabIndex={0}
+              role="button"
+              aria-disabled={!isClickable}
               aria-label={`${region.name}: ${
                 status === "locked"
                   ? "bloqueada"
@@ -67,6 +68,7 @@ function RegionMap() {
               }`}
               onKeyDown={(event) => {
                 if ((event.key === "Enter" || event.key === " ") && isClickable) {
+                  event.preventDefault();
                   handleRegionClick(region.id, status);
                 }
               }}

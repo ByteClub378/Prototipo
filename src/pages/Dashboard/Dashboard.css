@@ -51,8 +51,7 @@
   padding: 0.1rem 0.4rem;
 }
 
-.dashboard__eyebrow,
-.dashboard__guide-kicker {
+.dashboard__eyebrow {
   color: #3a7d4a;
   font-size: 0.72rem;
   font-weight: 900;
@@ -89,7 +88,7 @@
 /* ---------- Grade principal ---------- */
 .dashboard__expedition {
   display: grid;
-  grid-template-columns: minmax(300px, 0.8fr) minmax(0, 1.7fr);
+  grid-template-columns: minmax(220px, 0.65fr) minmax(0, 1.85fr);
   align-items: stretch;
   gap: clamp(0.9rem, 2vw, 1.75rem);
   flex: 1;
@@ -167,9 +166,7 @@
   line-height: 1.5;
 }
 
-.dashboard__guide-copy .dashboard__map-button {
-  width: 100%;
-}
+
 
 /* ---------- Painel do mapa ---------- */
 .dashboard__map-panel {
@@ -215,111 +212,35 @@
 /* Escala com a altura da janela para tudo caber sem rolagem */
 .dashboard__map-anchor .region-map__svg {
   max-width: min(100%, 780px);
-  max-height: 58vh;
-  max-height: clamp(320px, calc(100dvh - 390px), 700px);
+  max-height: clamp(320px, calc(100dvh - 330px), 760px);
 }
 
-.dashboard__map-button {
-  display: inline-flex;
-  min-height: 44px;
-  align-items: center;
-  justify-content: center;
-  gap: 0.45rem;
-  margin-top: 0.8rem;
-  padding: 0.6rem 0.85rem;
-  border: 2px solid #fff;
-  border-radius: 14px;
-  background: #ffcf56;
-  box-shadow: 0 3px 0 #d69b29;
-  color: #56391f;
-  font-weight: 900;
-  text-align: center;
-  transition: transform 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+/* Guia compacto no celular para ampliar o mapa. */
+@media (max-width: 1000px) {
+  .dashboard__expedition { grid-template-columns: minmax(190px, 0.65fr) minmax(0, 1.85fr); }
+  .dashboard__guide-image { width: min(90%, 180px); }
+  .dashboard__header { align-items: flex-start; flex-wrap: wrap; gap: 0.6rem; }
 }
-
-.dashboard__map-button:hover {
-  background: #ffd975;
-}
-
-.dashboard__map-button:active {
-  transform: translateY(2px);
-  box-shadow: 0 1px 0 #d69b29;
-}
-
-/* ---------- Tablet ---------- */
-@media (max-width: 1100px) {
-  .dashboard__expedition {
-    grid-template-columns: minmax(240px, 0.8fr) minmax(0, 1.2fr);
-  }
-
-  .dashboard__guide-image {
-    width: min(70%, 180px, 30vh);
-  }
-}
-
-/* ---------- Mobile ---------- */
 @media (max-width: 700px) {
-  .dashboard {
-    min-height: auto;
-  }
-
-  .dashboard__header {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .dashboard__expedition {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .dashboard__guide {
-    display: grid;
-    grid-template-columns: minmax(90px, 0.6fr) minmax(0, 1fr);
-    text-align: left;
-  }
-
-  .dashboard__guide-image {
-    width: 100%;
-    max-height: 180px;
-    padding: 0;
-    border-radius: 0;
-    background: none;
-    aspect-ratio: auto;
-  }
-
-  /* Balão aponta para o Beto (à esquerda) */
-  .dashboard__guide-copy::before {
-    top: 1.4rem;
-    left: -9px;
-    transform: rotate(-45deg);
-  }
-
-  .dashboard__map-anchor .region-map__svg {
-    max-height: none;
-  }
+  .dashboard { min-height: auto; gap: 0.65rem; padding: 0.65rem; border-radius: 22px; }
+  .dashboard__header p { font-size: 0.82rem; }
+  .dashboard__welcome-badge { padding: 0.4rem 0.65rem; font-size: 0.72rem; }
+  .dashboard__expedition { grid-template-columns: minmax(0, 1fr); gap: 0.65rem; }
+  .dashboard__guide { flex-direction: row; gap: 0.65rem; padding: 0.6rem; border-radius: 18px; text-align: left; }
+  .dashboard__guide-image { width: clamp(60px, 17vw, 100px); padding: 0; }
+  .dashboard__guide-copy { padding: 0.65rem; border-radius: 14px; }
+  .dashboard__guide-copy::before { top: 50%; left: -9px; transform: translateY(-50%) rotate(-45deg); }
+  .dashboard__guide-copy h2 { margin-top: 0; font-size: clamp(1rem, 3.8vw, 1.3rem); }
+  .dashboard__guide-copy p { margin-top: 0.25rem; font-size: 0.78rem; line-height: 1.35; }
+  .dashboard__map-panel { padding: 0.5rem; border-radius: 18px; }
+  .dashboard__map-heading { padding: 0.3rem 0.6rem; font-size: 0.82rem; }
+  .dashboard__map-anchor .region-map__svg { max-height: none; }
 }
 
-@media (max-width: 420px) {
-  .dashboard__guide {
-    grid-template-columns: minmax(0, 1fr);
-    justify-items: center;
-    text-align: center;
-  }
-
-  .dashboard__guide-image {
-    width: min(100%, 150px);
-  }
-
-  /* Empilhado: balão volta a apontar para cima */
-  .dashboard__guide-copy::before {
-    top: -9px;
-    left: 50%;
-    transform: translateX(-50%) rotate(45deg);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .dashboard__map-button {
-    transition: none;
-  }
+@media (max-width: 700px) {
+  .dashboard__eyebrow { display: none; }
+  .dashboard__header { gap: 0.4rem; }
+  .dashboard__map-heading { padding-block: 0.15rem; }
+  .dashboard__map-anchor .region-map { gap: 0.5rem; }
+  .dashboard__map-anchor .region-map__bonus { padding: 0.5rem 0.65rem; }
 }

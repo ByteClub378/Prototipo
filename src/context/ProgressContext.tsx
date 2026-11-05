@@ -6,7 +6,7 @@ import {
 } from "react";
 import type { RegionId, RegionStatus } from "../types";
 import { REGIONS } from "../data/regions/regions";
-import { apiDelete } from "../utils/api";
+
 import { useSession } from "./SessionContext";
 
 type ProgressMap = Record<RegionId, RegionStatus>;
@@ -32,7 +32,7 @@ const ProgressContext = createContext<ProgressContextValue | undefined>(
 );
 
 export function ProgressProvider({ children }: { children: ReactNode }) {
-  const { gameState, refreshState } = useSession();
+  const { gameState, startNewJourney } = useSession();
   const sortedRegions = useMemo(() => [...REGIONS].sort((a, b) => a.order - b.order), []);
   const progress = useMemo(() => {
     const next = buildInitialProgress();
@@ -47,12 +47,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
   }
 
   async function resetProgress() {
-    await apiDelete("/me/progress", { "X-Confirm-Reset": "RESET" });
-    localStorage.removeItem("aventura-regioes:progress");
-    const state = await refreshState();
-    if (!state) {
-      throw new Error("Não foi possível sincronizar o progresso reiniciado.");
-    }
+    await startNewJourney();
   }
 
   const bonusUnlocked = sortedRegions.every(
