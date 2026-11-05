@@ -5,6 +5,7 @@ import {
   useState,
   type MouseEvent as ReactMouseEvent,
 } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import GameCard from "../../../components/ui/GameCard";
 import { NarrationButton } from "../../../components/NarrationButton";
@@ -30,7 +31,7 @@ import {
 import { logEvent } from "../../../utils/telemetry";
 import { narrations } from "../../../data/narrations";
 import { createTopicTracker, type TopicId } from "../../../utils/topicResults";
-import centroOesteMap from "../../../assets/centro-oeste/mapa-centro-oeste.jpg";
+import centroOesteMap from "../../../assets/centro-oeste/mapa-centro-oeste.webp";
 import "./CenterWestPhase.css";
 
 const TOTAL_MISSIONS = 8;
@@ -59,13 +60,16 @@ interface WrongMarker {
 }
 
 function CenterWestPhase() {
-  const { feedbackRef, showSuccess, showError, notifyError, clearFeedback } = useGameFeedback<HTMLElement>();
+  const { feedbackRef, showError, notifyError, clearFeedback } = useGameFeedback<HTMLElement>();
+  const dialogRef = useRef<HTMLElement>(null);
+  const sceneRef = useRef<HTMLDivElement>(null);
+  const [sceneSize, setSceneSize] = useState({ width: 1280, height: 853 });
   const actionLockedRef = useRef(false);
   const unlockTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const navigate = useNavigate();
-  const { addPoints, resetScore } = useScore();
+  const { addPoints, discardRound } = useScore();
   const { startAttempt, completeAttempt } = useAttempt("centro-oeste");
-  const { status: sessionStatus, refreshState, retryBootstrap } = useSession();
+  const { status: sessionStatus, retryBootstrap } = useSession();
 
   const [missions, setMissions] = useState(createCentroOesteMissionOrder);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -91,6 +95,53 @@ function CenterWestPhase() {
   const progressPercent = Math.round(
     (discoveredIds.length / TOTAL_MISSIONS) * 100,
   );
+  const dialogOpen = (gameStatus === "discovery" || gameStatus === "saving") && !!selectedDiscovery;
+  const showBoard = ["playing", "discovery", "saving"].includes(gameStatus);
+
+  useEffect(() => {
+    if (!showBoard || !sceneRef.current) return;
+    const observer = new ResizeObserver(([entry]) => {
+      const { width, height } = entry.contentRect;
+      const fittedWidth = Math.min(width, height * 1280 / 853);
+      setSceneSize({ width: fittedWidth, height: fittedWidth * 853 / 1280 });
+    });
+    observer.observe(sceneRef.current);
+    return () => observer.disconnect();
+  }, [showBoard]);
+
+  useEffect(() => {
+    if (!dialogOpen) return;
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const previousOverflow = document.body.style.overflow;
+    const previousPadding = document.body.style.paddingRight;
+    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+    document.body.style.overflow = "hidden";
+    if (scrollbarWidth > 0) document.body.style.paddingRight = `${parseFloat(getComputedStyle(document.body).paddingRight) + scrollbarWidth}px`;
+    const background = document.getElementById("root") ?? feedbackRef.current;
+    const wasInert = background?.inert ?? false;
+    if (background) background.inert = true;
+    dialogRef.current?.focus({ preventScroll: true });
+    const trapFocus = (event: KeyboardEvent) => {
+      if (event.key !== "Tab") return;
+      const buttons = dialogRef.current?.querySelectorAll<HTMLElement>('button:not(:disabled), [href], [tabindex="0"]');
+      const first = buttons?.[0];
+      const last = buttons?.[buttons.length - 1];
+      if (!first || !last) { event.preventDefault(); dialogRef.current?.focus(); return; }
+      if (event.shiftKey && (document.activeElement === first || document.activeElement === dialogRef.current)) {
+        event.preventDefault(); last.focus();
+      } else if (!event.shiftKey && (document.activeElement === last || document.activeElement === dialogRef.current)) {
+        event.preventDefault(); first.focus();
+      }
+    };
+    document.addEventListener("keydown", trapFocus);
+    return () => {
+      document.removeEventListener("keydown", trapFocus);
+      document.body.style.overflow = previousOverflow;
+      document.body.style.paddingRight = previousPadding;
+      if (background) background.inert = wasInert;
+      if (previousFocus?.isConnected) previousFocus.focus({ preventScroll: true });
+    };
+  }, [dialogOpen, feedbackRef]);
 
   useEffect(() => {
     return () => {
@@ -226,7 +277,6 @@ function CenterWestPhase() {
     }
 
     actionLockedRef.current = true;
-    showSuccess(mission.fact, { title: `${mission.name} encontrado!` });
     playSuccessSound();
     addPoints(POINTS_PER_CORRECT_ANSWER);
     levelScoreRef.current += POINTS_PER_CORRECT_ANSWER;
@@ -280,7 +330,6 @@ function CenterWestPhase() {
       return;
     }
 
-    await refreshState();
     logEvent({ type: "level_complete", phase: "centro-oeste", level: 1 });
     setSelectedDiscovery(null);
     completionSubmittingRef.current = false;
@@ -305,15 +354,14 @@ function CenterWestPhase() {
   }
 
   function restartPhase() {
-    resetScore();
+    discardRound();
     resetLocalGame();
     setGameStatus("intro");
   }
 
-  const showBoard = ["playing", "discovery", "saving"].includes(gameStatus);
-
   return (
-    <section ref={feedbackRef} className="centro-oeste-phase">
+    <section ref={feedbackRef} className={`centro-oeste-phase ${showBoard ? "centro-oeste-phase--playing" : ""}`}>
+      <div className="centro-oeste-phase__viewport">
       <header className="centro-oeste-phase__header">
         <div>
           <h1>🗺️ Guardiões do Centro-Oeste</h1>
@@ -355,9 +403,11 @@ function CenterWestPhase() {
         </GameCard>
       )}
 
+      {!showBoard && <ScoreDisplay />}
+
       {showBoard && currentMission && (
         <>
-          <div className="centro-oeste-phase__topline">
+          <div className="centro-oeste-phase__toolbar">
             <GameCard className="centro-oeste-phase__mission-card">
               <div>
                 <span className="centro-oeste-phase__eyebrow">
@@ -376,9 +426,6 @@ function CenterWestPhase() {
                 ))}
               </div>
             </GameCard>
-            <ScoreDisplay />
-          </div>
-
           <MissionTimer
             key={`${currentMission.id}-${timerNonce}`}
             durationSeconds={MISSION_TIME_SECONDS}
@@ -386,9 +433,13 @@ function CenterWestPhase() {
             onExpire={handleTimeout}
             label="Tempo para encontrar"
           />
+          <ScoreDisplay />
+          </div>
 
+          <div ref={sceneRef} className="centro-oeste-phase__scene">
           <div
             className="centro-oeste-phase__map"
+            style={{ width: sceneSize.width, height: sceneSize.height }}
             onClick={handleMapClick}
             aria-label="Mapa ilustrado do Cerrado e do Pantanal"
           >
@@ -432,8 +483,12 @@ function CenterWestPhase() {
               </span>
             )}
           </div>
+          </div>
+        </>
+      )}
+      </div>
 
-          <section className="centro-oeste-phase__album" aria-labelledby="album-title">
+      {showBoard && <section className="centro-oeste-phase__album" aria-labelledby="album-title">
             <h2 id="album-title">Álbum de descobertas</h2>
             <div className="centro-oeste-phase__album-grid">
               {missions.map((mission) => {
@@ -452,9 +507,7 @@ function CenterWestPhase() {
                 );
               })}
             </div>
-          </section>
-        </>
-      )}
+          </section>}
 
       {gameStatus === "game-over" && (
         <GameCard className="centro-oeste-phase__state-card centro-oeste-phase__state-card--danger">
@@ -477,17 +530,20 @@ function CenterWestPhase() {
         </GameCard>
       )}
 
-      {(gameStatus === "discovery" || gameStatus === "saving") && selectedDiscovery && (
+      {dialogOpen && selectedDiscovery && createPortal(
         <div className="centro-oeste-phase__dialog-backdrop" role="presentation">
-          <article className="centro-oeste-phase__dialog" role="dialog" aria-modal="true" aria-labelledby="discovery-title">
+          <article ref={dialogRef} tabIndex={-1} className="centro-oeste-phase__dialog" role="dialog" aria-modal="true" aria-labelledby="discovery-title" aria-describedby="discovery-fact">
+            <div className="centro-oeste-phase__dialog-content">
             <span className="centro-oeste-phase__dialog-icon">{selectedDiscovery.icon}</span>
             <p className="centro-oeste-phase__dialog-kicker">✅ Descoberta registrada</p>
             <h2 id="discovery-title">{selectedDiscovery.name}</h2>
-            <p><strong>Você sabia?</strong> {selectedDiscovery.fact}</p>
+            <p id="discovery-fact"><strong>Você sabia?</strong> {selectedDiscovery.fact}</p>
             <p className="centro-oeste-phase__preservation">
               🌱 <strong>Dica de preservação:</strong> {selectedDiscovery.preservationTip}
             </p>
             {feedback && <p className="centro-oeste-phase__error">{feedback}</p>}
+            </div>
+            <footer className="centro-oeste-phase__dialog-actions">
             <button type="button" onClick={continueAfterDiscovery} disabled={gameStatus === "saving"}>
               {gameStatus === "saving"
                 ? "Salvando conquista..."
@@ -497,8 +553,9 @@ function CenterWestPhase() {
                     : "Conquistar medalha"
                   : "Próxima missão"}
             </button>
+            </footer>
           </article>
-        </div>
+        </div>, document.body
       )}
     </section>
   );

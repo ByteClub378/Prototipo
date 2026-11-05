@@ -49,7 +49,9 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
       return undefined as T;
     }
 
-    const body = (await response.json()) as ApiSuccessBody<T> | ApiFailureBody;
+    let body: ApiSuccessBody<T> | ApiFailureBody;
+    try { body = await response.json() as ApiSuccessBody<T> | ApiFailureBody; }
+    catch { throw new ApiError(response.status || 502, "INVALID_RESPONSE", "O servidor retornou uma resposta inválida. Tente novamente."); }
 
     if (!response.ok) {
       const failure = body as ApiFailureBody;
@@ -62,6 +64,10 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     }
 
     return (body as ApiSuccessBody<T>).data;
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+    if (controller.signal.aborted) throw new ApiError(408, "REQUEST_TIMEOUT", "A conexão demorou demais. Tente novamente.");
+    throw new ApiError(0, "NETWORK_ERROR", "Não foi possível conectar. Verifique sua internet.");
   } finally {
     clearTimeout(timeoutId);
     options.signal?.removeEventListener("abort", onAbort);

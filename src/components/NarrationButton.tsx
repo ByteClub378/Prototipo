@@ -9,6 +9,7 @@ export function NarrationButton({ audios }: NarrationButtonProps) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const playRequestRef = useRef(0);
   const [playing, setPlaying] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     return () => {
@@ -35,6 +36,7 @@ export function NarrationButton({ audios }: NarrationButtonProps) {
       if (request !== playRequestRef.current) return;
       setPlaying(false);
       audioRef.current = null;
+      setError("Não foi possível reproduzir. Toque em Ouvir instruções para tentar novamente. As instruções também estão escritas na fase.");
       console.error("O navegador bloqueou a reprodução do áudio.", error);
     }
   }
@@ -55,13 +57,14 @@ export function NarrationButton({ audios }: NarrationButtonProps) {
       playRequestRef.current += 1;
       setPlaying(false);
       audioRef.current = null;
-      console.error("Não foi possível carregar o áudio da narração.");
+      setError("Não foi possível carregar o áudio. Tente novamente ou leia as instruções da fase.");
     };
 
     await startAudio(audio);
   }
 
   async function toggleNarration() {
+    setError(null);
     const currentAudio = audioRef.current;
 
     if (currentAudio && !currentAudio.paused) {
@@ -92,6 +95,7 @@ export function NarrationButton({ audios }: NarrationButtonProps) {
         <span aria-hidden="true">{playing ? "⏸" : "🔊"}</span>
         {playing ? "Pausar narração" : "Ouvir instruções"}
       </button>
+      {error && <p role="alert">{error}</p>}
     </div>
   );
 }

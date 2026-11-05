@@ -42,3 +42,6 @@ temp/
 # Private backend/frontend handoff notes (do not commit or deploy)
 intruções.txt
 PROJECT_MEMORY.md
+
+# Generated frontend build
+dist/

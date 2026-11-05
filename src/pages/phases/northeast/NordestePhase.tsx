@@ -180,18 +180,19 @@ function NordestePhase() {
   const { feedbackRef, showSuccess, showError, notifyError, clearFeedback } = useGameFeedback();
   const resolvingRef = useRef(false);
   const navigate = useNavigate();
-  const { addPoints, resetScore } = useScore();
+  const { addPoints, discardRound } = useScore();
   const { startAttempt, completeAttempt } = useAttempt("nordeste");
-  const { status, refreshState, retryBootstrap } = useSession();
+  const { status, gameState, retryBootstrap } = useSession();
+  const [checkpoint] = useState(() => gameState?.checkpoints.nordeste);
   const levelScoreRef = useRef(0);
   const levelCorrectRef = useRef(0);
   const levelIncorrectRef = useRef(0);
-  const missionCorrectRef = useRef(0);
-  const missionAnsweredRef = useRef(0);
+  const missionCorrectRef = useRef(checkpoint?.correctAnswers ?? 0);
+  const missionAnsweredRef = useRef((checkpoint?.correctAnswers ?? 0) + (checkpoint?.incorrectAnswers ?? 0));
   const topicTrackerRef = useRef(createTopicTracker());
 
   const [levels, setLevels] = useState(createNordesteLevels);
-  const [levelIndex, setLevelIndex] = useState(0);
+  const [levelIndex, setLevelIndex] = useState(() => Math.max(0, (checkpoint?.nextLevelNumber ?? 1) - 1));
   const [showBanner, setShowBanner] = useState(true);
   const [levelComplete, setLevelComplete] = useState(false);
   const [missionComplete, setMissionComplete] = useState(false);
@@ -286,7 +287,6 @@ function NordestePhase() {
       return;
     }
 
-    await refreshState();
     setSaveFailed(false);
     if (isLastLevel) {
       const answered = missionAnsweredRef.current;
@@ -353,11 +353,11 @@ function NordestePhase() {
   }
 
   function restartMission() {
+    discardRound();
     clearFeedback();
     resolvingRef.current = false;
     if (advanceTimeoutRef.current) clearTimeout(advanceTimeoutRef.current);
     const nextLevels = createNordesteLevels();
-    resetScore();
     setLevels(nextLevels);
     missionCorrectRef.current = 0;
     missionAnsweredRef.current = 0;

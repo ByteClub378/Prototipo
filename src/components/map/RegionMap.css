@@ -101,3 +101,12 @@
 .region-map__bonus:disabled {
   opacity: 1;
 }
+
+.region-map__region:focus-visible path {
+  stroke: #174e35;
+  stroke-width: 4px;
+  stroke-linejoin: round;
+}
+@media (prefers-reduced-motion: reduce) {
+  .region-map__region, .region-map__bonus--unlocked { transition: none; }
+}

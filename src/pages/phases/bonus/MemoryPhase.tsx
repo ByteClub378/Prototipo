@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAttempt } from "../../../hooks/useAttempt";
+import { useSession } from "../../../context/SessionContext";
+import ScoreDisplay from "../../../components/game/ScoreDisplay";
 import { useScore } from "../../../context/ScoreContext";
 import { POINTS_PER_CORRECT_ANSWER } from "../../../data/scoring";
 import "./MemoryPhase.css";
@@ -19,7 +22,7 @@ type MemoryCard = {
   name: string;
 };
 
-type GameStatus = "intro" | "playing" | "stage-complete" | "complete";
+type GameStatus = "intro" | "playing" | "saving" | "save-error" | "stage-complete" | "complete";
 
 const STAGES: RegionStage[] = [
   {
@@ -60,12 +63,12 @@ const STAGES: RegionStage[] = [
 ];
 
 const SPRITE_NAMES = [
-  "Onça-pintada",
-  "Boto-cor-de-rosa",
-  "Vitória-régia",
+  "Leão",
+  "Golfinho",
+  "Flor de lótus",
   "Borboleta-amarela",
-  "Arara",
-  "Castanha-do-pará",
+  "Papagaio",
+  "Amendoim",
   "Bicho-preguiça",
   "Barco amazônico",
   "Mandacaru",
@@ -76,30 +79,30 @@ const SPRITE_NAMES = [
   "Vestido de festa",
   "Sol",
   "Tartaruga-marinha",
-  "Lobo-guará",
-  "Tuiuiú",
-  "Pequi",
+  "Lobo",
+  "Flamingo",
+  "Abacate",
   "Jacaré",
   "Gado do Pantanal",
   "Pegada de onça",
-  "Flor do Cerrado",
+  "Flor",
   "Chapéu",
-  "Cristo Redentor",
+  "Estátua",
   "Bondinho",
   "Café",
-  "Pão de queijo",
+  "Queijo",
   "Cidade",
-  "Igreja histórica",
-  "Moqueca",
+  "Igreja",
+  "Ensopado",
   "Guarda-sol",
-  "Araucária",
-  "Pinhão",
+  "Árvore conífera",
+  "Castanha",
   "Chimarrão",
   "Cavalo",
   "Baleia",
   "Uvas",
   "Gorro",
-  "Gralha-azul",
+  "Pássaro",
 ];
 
 const OPENMOJI_CODES = [
@@ -210,9 +213,14 @@ function createDeck(stageIndex: number): MemoryCard[] {
 
 export default function MemoryPhase() {
   const navigate = useNavigate();
-  const { addPoints } = useScore();
+  const { addPoints, discardRound } = useScore();
+  const { gameState } = useSession();
+  const { startAttempt, completeAttempt, error } = useAttempt("bonus");
+  const [starting, setStarting] = useState(false);
+  const startingRef = useRef(false);
+  const savingRef = useRef(false);
 
-  const [stageIndex, setStageIndex] = useState(0);
+  const [stageIndex, setStageIndex] = useState(() => Math.max(0, (gameState?.checkpoints.bonus?.nextLevelNumber ?? 1) - 1));
   const [status, setStatus] = useState<GameStatus>("intro");
   const [deck, setDeck] = useState<MemoryCard[]>([]);
   const [flippedIds, setFlippedIds] = useState<string[]>([]);
@@ -242,7 +250,12 @@ export default function MemoryPhase() {
     };
   }, []);
 
-  function startStage(index: number) {
+  async function startStage(index: number) {
+    if (startingRef.current) return;
+    startingRef.current = true; setStarting(true);
+    const started = await startAttempt(index + 1);
+    startingRef.current = false; setStarting(false);
+    if (!started) return;
     resolvingMismatch.current = false;
     setStageIndex(index);
     setDeck(createDeck(index));
@@ -251,6 +264,14 @@ export default function MemoryPhase() {
     setMoves(0);
     setSeconds(0);
     setStatus("playing");
+  }
+
+  async function saveStage(totalMoves: number) {
+    if (savingRef.current) return;
+    savingRef.current = true; setStatus("saving");
+    const result = await completeAttempt({ score: 800, correctAnswers: 8, incorrectAnswers: Math.max(0, totalMoves - 8) });
+    savingRef.current = false;
+    setStatus(result?.passed ? "stage-complete" : "save-error");
   }
 
   function handleCardClick(card: MemoryCard) {
@@ -282,7 +303,7 @@ export default function MemoryPhase() {
       addPoints(POINTS_PER_CORRECT_ANSWER);
 
       if (nextMatched.length === deck.length) {
-        setStatus("stage-complete");
+        void saveStage(moves + 1);
       }
 
       return;
@@ -301,7 +322,7 @@ export default function MemoryPhase() {
       return;
     }
 
-    startStage(stageIndex + 1);
+    void startStage(stageIndex + 1);
   }
 
   function formatTime(totalSeconds: number) {
@@ -319,10 +340,11 @@ export default function MemoryPhase() {
           <div className="memory-intro__icon" aria-hidden="true">🕹️</div>
           <h1>Memória do Brasil</h1>
           <p>
-            Complete cinco etapas, uma para cada região. Encontre os oito pares
+            Os ícones são símbolos ilustrativos, não fotografias das espécies regionais. Complete cinco etapas e encontre os oito pares
             em cada tabuleiro 4×4 para conquistar o desafio bônus.
           </p>
 
+          {error && <p role="alert">{error}</p>}
           <div className="memory-region-list">
             {STAGES.map((item, index) => (
               <span key={item.name} title={item.name}>
@@ -335,9 +357,10 @@ export default function MemoryPhase() {
           <button
             className="memory-button"
             type="button"
-            onClick={() => startStage(0)}
+            disabled={starting}
+            onClick={() => void startStage(stageIndex)}
           >
-            Começar desafio
+            {starting ? "Conectando…" : stageIndex > 0 ? `Retomar etapa ${stageIndex + 1}` : "Começar desafio"}
           </button>
           <button
             className="memory-link-button"
@@ -347,6 +370,7 @@ export default function MemoryPhase() {
             Voltar ao mapa
           </button>
         </section>
+        <ScoreDisplay />
         <MemoryAttribution />
       </main>
     );
@@ -374,6 +398,7 @@ export default function MemoryPhase() {
             className="memory-link-button"
             type="button"
             onClick={() => {
+              discardRound();
               setStageIndex(0);
               setStatus("intro");
             }}
@@ -423,12 +448,17 @@ export default function MemoryPhase() {
           ))}
         </div>
 
+        <ScoreDisplay />
+
         <div className="memory-stats">
           <div><small>PARES</small><strong>{matchedIds.length / 2}/8</strong></div>
           <div><small>TENTATIVAS</small><strong>{moves}</strong></div>
           <div><small>TEMPO</small><strong>{formatTime(seconds)}</strong></div>
         </div>
 
+        {error && <p role="alert">{error}</p>}
+        {status === "saving" && <p role="status">Salvando etapa…</p>}
+        {status === "save-error" && <div role="alert"><p>Não foi possível confirmar esta etapa. Suas cartas foram mantidas.</p><button className="memory-button" onClick={() => void saveStage(moves)}>Tentar salvar novamente</button></div>}
         <div className="memory-board" aria-label={`Tabuleiro da região ${stage.name}`}>
           {deck.map((card, index) => {
             const isRevealed =
@@ -444,7 +474,7 @@ export default function MemoryPhase() {
                   matchedIds.includes(card.id) ? "is-matched" : "",
                 ].join(" ")}
                 onClick={() => handleCardClick(card)}
-                disabled={matchedIds.includes(card.id)}
+                disabled={status !== "playing" || matchedIds.includes(card.id)}
                 aria-label={
                   isRevealed
                     ? `Carta ${index + 1}: ${card.name}`

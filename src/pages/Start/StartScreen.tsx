@@ -1,9 +1,14 @@
-import { useId, useState } from 'react';
+import { useId, useState, type ReactNode } from 'react';
 import './StartScreen.css';
-import defaultBackground from '../../assets/paisagem-brasil.png';
+import defaultBackground from '../../assets/paisagem-brasil.webp';
 import defaultLogo from '../../assets/logo-cruzeiro-do-sul.png';
 
 export type StartScreenProps = {
+  error?: string | null;
+  notice?: string | null;
+  connectionFailed?: boolean;
+  onRetry?: () => void;
+  resetConfirmation?: ReactNode;
   onPlay?: () => void;
   onContinue?: () => void;
   onCredits?: () => void;
@@ -22,6 +27,7 @@ function Arrow() {
 }
 
 function StartScreen({
+  error, notice, connectionFailed = false, onRetry, resetConfirmation,
   onPlay = () => {},
   onContinue = () => {},
   onCredits = () => {},
@@ -68,10 +74,10 @@ function StartScreen({
               type="button"
               className="adventure-start__button adventure-start__button--play"
               onClick={onPlay}
-              disabled={isLoading}
+              disabled={isLoading || connectionFailed}
             >
               <span className="adventure-start__button-icon" aria-hidden="true">▶</span>
-              <span>{isLoading ? 'Preparando aventura…' : 'Jogar'}</span>
+              <span>{isLoading ? 'Preparando aventura…' : hasProgress ? 'Novo jogo' : 'Começar aventura'}</span>
               <Arrow />
             </button>
   
@@ -87,9 +93,13 @@ function StartScreen({
               <Arrow />
             </button>
   
+            {error && <p className="adventure-start__message" role="alert">{error}</p>}
+            {notice && <p className="adventure-start__message" role="status">{notice}</p>}
+            {connectionFailed && <div className="adventure-start__message" role="alert"><p>Não foi possível conectar.</p><button type="button" onClick={onRetry} disabled={isLoading}>Tentar novamente</button></div>}
+            {resetConfirmation}
             {!hasProgress && (
               <p className="adventure-start__hint" id={`${titleId}-progress`}>
-                Sua jornada começa com “Jogar”.
+                Sua jornada começa com “Começar aventura”.
               </p>
             )}
             <button

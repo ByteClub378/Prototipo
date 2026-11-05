@@ -8,12 +8,12 @@ import { useAttempt } from "../../../hooks/useAttempt";
 import { POINTS_PER_CORRECT_ANSWER } from "../../../data/scoring";
 import { createTopicTracker, type TopicId } from "../../../utils/topicResults";
 import { narrations } from "../../../data/narrations";
-import paranaA from "../../../assets/sul/parana-a.png";
-import paranaB from "../../../assets/sul/parana-b.png";
-import santaCatarinaA from "../../../assets/sul/santa-catarina-a.png";
-import santaCatarinaB from "../../../assets/sul/santa-catarina-b.png";
-import rioGrandeDoSulA from "../../../assets/sul/rio-grande-do-sul-a.png";
-import rioGrandeDoSulB from "../../../assets/sul/rio-grande-do-sul-b.png";
+import paranaA from "../../../assets/sul/parana-a.webp";
+import paranaB from "../../../assets/sul/parana-b.webp";
+import santaCatarinaA from "../../../assets/sul/santa-catarina-a.webp";
+import santaCatarinaB from "../../../assets/sul/santa-catarina-b.webp";
+import rioGrandeDoSulA from "../../../assets/sul/rio-grande-do-sul-a.webp";
+import rioGrandeDoSulB from "../../../assets/sul/rio-grande-do-sul-b.webp";
 import logoCruzeiroDoSul from "../../../assets/logo-cruzeiro-do-sul.png";
 import "./SouthPhase.css";
 
@@ -138,10 +138,10 @@ function Scene({
 export default function SouthPhase() {
   const navigate = useNavigate();
   const { addPoints } = useScore();
-  const { status: sessionStatus, retryBootstrap, refreshState } = useSession();
+  const { status: sessionStatus, retryBootstrap, gameState } = useSession();
   const { startAttempt, completeAttempt } = useAttempt("sul");
 
-  const [stageIndex, setStageIndex] = useState(0);
+  const [stageIndex, setStageIndex] = useState(() => Math.max(0, (gameState?.checkpoints.sul?.nextLevelNumber ?? 1) - 1));
   const [foundIds, setFoundIds] = useState<number[]>([]);
   const [gameStatus, setGameStatus] = useState<GameStatus>("intro");
   const [message, setMessage] = useState("");
@@ -202,7 +202,12 @@ export default function SouthPhase() {
       return;
     }
 
-    await refreshState();
+    if (!result.passed) {
+      saveLock.current = false;
+      setMessage("O servidor não aprovou esta rodada. Volte ao mapa e tente novamente.");
+      setGameStatus("save-error");
+      return;
+    }
     setGameStatus("stage-complete");
   }
 

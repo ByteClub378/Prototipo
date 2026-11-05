@@ -9,7 +9,7 @@ export interface ServerRegionProgress {
 }
 
 export interface ServerLevelProgress {
-  regionId: RegionId;
+  regionId: RegionId | "bonus";
   levelNumber: number;
   name: string;
   questionCount: number;
@@ -29,7 +29,18 @@ export interface ServerMedal {
   awardedAt: string;
 }
 
+export interface MissionCheckpoint {
+  runId: string;
+  nextLevelNumber: number;
+  correctAnswers: number;
+  incorrectAnswers: number;
+}
+
 export interface GameStateResponse {
+  journeyId: string;
+  totalScore: number;
+  hasProgress: boolean;
+  checkpoints: Partial<Record<RegionId | "bonus", MissionCheckpoint>>;
   playerId: string;
   revision: number;
   progress: {

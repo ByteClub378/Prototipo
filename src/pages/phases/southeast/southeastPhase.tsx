@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { NarrationButton } from "../../../components/NarrationButton";
 import { narrations } from "../../../data/narrations";
+import ScoreDisplay from "../../../components/game/ScoreDisplay";
 import { useScore } from "../../../context/ScoreContext";
 import { useSession } from "../../../context/SessionContext";
 import { POINTS_PER_CORRECT_ANSWER, POINTS_PER_INCORRECT_ANSWER } from "../../../data/scoring";
@@ -155,9 +156,6 @@ function SudestePhase() {
         return;
       }
 
-      if (result.passed) {
-        addPoints(200);
-      }
       const refreshedState = await refreshState();
       if (result.passed && !refreshedState) {
         setCompletionError("Sua conclusão foi confirmada, mas não foi possível atualizar o mapa. Tente sincronizar novamente.");
@@ -168,7 +166,7 @@ function SudestePhase() {
     })().finally(() => {
       completionInFlightRef.current = false;
     });
-  }, [addPoints, attemptStarted, completeAttempt, completionStatus, isComplete, refreshState]);
+  }, [attemptStarted, completeAttempt, completionStatus, isComplete, refreshState]);
 
   const questionProgress = useMemo(() => `${placedIds.length} de 4 estados`, [placedIds.length]);
 
@@ -198,6 +196,7 @@ function SudestePhase() {
       return;
     }
 
+    if (placedIds.length === SOUTHEAST_STATES.length - 1) addPoints(200);
     setPlacedIds((current) => current.includes(stateId) ? current : [...current, stateId]);
     setSelectedId(null);
     showSuccess(`${SOUTHEAST_STATES.find((state) => state.id === stateId)?.name} está no lugar certo!`, { title: "Peça encaixada!" });
@@ -302,6 +301,8 @@ function SudestePhase() {
           </div>
         </div>
       </header>
+
+      <ScoreDisplay />
 
       {completionStatus === "passed" ? (
         <section className="sudeste-phase__victory" aria-live="polite">

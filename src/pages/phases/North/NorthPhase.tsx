@@ -50,21 +50,22 @@ function NorthPhase() {
     clearFeedback,
   } = useGameFeedback();
   const navigate = useNavigate();
-  const { addPoints, resetScore } = useScore();
+  const { addPoints, discardRound } = useScore();
   const { startAttempt, completeAttempt } = useAttempt("norte");
-  const { status, refreshState, retryBootstrap } = useSession();
+  const { status, gameState, retryBootstrap } = useSession();
+  const [checkpoint] = useState(() => gameState?.checkpoints.norte);
 
   // Contadores da tentativa ATUAL (resetam a cada nível) — usados só pro
   // PATCH /attempts/{id}/complete, não se confundem com o placar global.
   const levelScoreRef = useRef(0);
   const levelCorrectRef = useRef(0);
   const levelIncorrectRef = useRef(0);
-  const missionCorrectRef = useRef(0);
-  const missionAnsweredRef = useRef(0);
+  const missionCorrectRef = useRef(checkpoint?.correctAnswers ?? 0);
+  const missionAnsweredRef = useRef((checkpoint?.correctAnswers ?? 0) + (checkpoint?.incorrectAnswers ?? 0));
   const topicTrackerRef = useRef(createTopicTracker());
 
   const [levels, setLevels] = useState(createNorthLevels);
-  const [levelIndex, setLevelIndex] = useState(0);
+  const [levelIndex, setLevelIndex] = useState(() => Math.max(0, (checkpoint?.nextLevelNumber ?? 1) - 1));
   const [showBanner, setShowBanner] = useState(true);
   const [levelComplete, setLevelComplete] = useState(false);
   const [missionComplete, setMissionComplete] = useState(false);
@@ -161,7 +162,6 @@ function NorthPhase() {
       return;
     }
 
-    await refreshState();
     setSaveFailed(false);
     if (isLastLevel) {
       const answered = missionAnsweredRef.current;
@@ -226,9 +226,9 @@ function NorthPhase() {
   }
 
   function restartMission() {
+    discardRound();
     clearFeedback();
     const nextLevels = createNorthLevels();
-    resetScore();
     setLevels(nextLevels);
     missionCorrectRef.current = 0;
     missionAnsweredRef.current = 0;
