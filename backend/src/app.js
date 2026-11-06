@@ -10,9 +10,13 @@ import { errorHandler, notFound } from "./middleware/errors.js";
 import apiRouter from "./routes/api.js";
 import { ApiError } from "./utils/api-error.js";
 export const app = express();
-const allowedOrigins = [env.FRONTEND_ORIGIN];
+const allowedOrigins = [...new Set([
+    env.FRONTEND_ORIGIN,
+    "https://prototipo-gray-two.vercel.app",
+    "https://brasil-adventure.vercel.app",
+])];
 app.disable("x-powered-by");
-if (env.TRUST_PROXY)
+if (env.TRUST_PROXY || process.env.VERCEL === "1")
     app.set("trust proxy", 1);
 app.use(helmet());
 app.use(cors({ origin: allowedOrigins, credentials: true, methods: ["GET", "POST", "PATCH", "DELETE"] }));
