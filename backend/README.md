@@ -21,7 +21,7 @@ API padrão: `http://localhost:3000`. Prefixo: `/api/v1`. `npm start` valida o F
 | `PORT` | Porta HTTP | `3000` |
 | `NODE_ENV` | `development`, `test` ou `production` | `development` |
 | `TRUST_PROXY` | Confiar no proxy reverso (usar `true` no Render) | `false` |
-| `FRONTEND_ORIGIN` | Única origem permitida pelo CORS e pela validação de origem | `http://localhost:5173` |
+| `FRONTEND_ORIGIN` | Origem principal configurável; a implantação atual também permite os domínios Vercel declarados em `backend/src/app.js` | `http://localhost:5173` |
 | `COOKIE_NAME` | Cookie de sessão | `aventura_session` |
 | `SESSION_TTL_HOURS` | Validade da sessão | `168` |
 | `SESSION_SECRET` | Segredo de assinatura, mínimo 32 caracteres | obrigatório em produção |
@@ -133,11 +133,17 @@ idempotente, contém `passed`, `minScore`, `maxScore`, `revision` e
 
 ### Estatísticas administrativas
 
-O painel `/admin` e as rotas de métricas são públicos e somente leitura. Não exigem login ou chave de API. As rotas preservam limite de requisições e aceitam filtros opcionais `from`, `to` (`AAAA-MM-DD`) e `regionId`.`r`n`r`n- `GET /api/v1/admin/stats/overview` — total de jogadores, jogadores que
+> [!WARNING]
+> O painel `/admin` e as rotas de métricas são atualmente **públicos** e de leitura. Não exigem login ou chave de API; só devem exibir indicadores agregados, sem informações pessoais de jogadores. Para acesso exclusivo de professores, implementar autenticação e autorização.
+
+O painel `/admin` e as rotas de métricas são públicos e somente leitura. Não exigem login ou chave de API. As rotas preservam limite de requisições e aceitam filtros opcionais `from`, `to` (`AAAA-MM-DD`) e `regionId`.
+
+- `GET /api/v1/admin/stats/overview` — total de jogadores, jogadores que
   concluíram ao menos uma tentativa, tentativas, aprovação, precisão e duração.
 - `GET /api/v1/admin/stats/levels` — métricas por fase e rankings das fases mais
   jogadas e com melhor desempenho.
 - `GET /api/v1/admin/stats/regions` — métricas e rankings consolidados por região.
+- `GET /api/v1/admin/stats/topics` — métricas agregadas de acertos e erros por assunto.
 
 Exemplo resumido de `overview`:
 
@@ -220,8 +226,9 @@ firebase deploy --only firestore --config backend/firebase/firebase.json
 - Cookies assinados não aparecem no JSON e não são persistidos no Firestore.
 - Escritas críticas de tentativa e progresso usam transações do Firestore.
 - CORS é restrito, JSON é limitado a 32 KB e há rate limiting.
-- Rotas da API rejeitam explicitamente um cabeçalho `Origin` diferente de
-  `FRONTEND_ORIGIN`; CORS sozinho não é usado como proteção contra requisições.
+- Rotas da API rejeitam explicitamente cabeçalhos `Origin` não incluídos na lista
+  `allowedOrigins` definida em `backend/src/app.js` (origem configurável e domínios
+  Vercel autorizados). CORS sozinho não é usado como proteção contra requisições.
 - Erros internos não expõem stack traces.
 - Pontuação é validada contra o limite do nível.
 
@@ -236,7 +243,16 @@ npm run test:backend
 
 Testes transacionais completos requerem o Firebase Emulator Suite ou um projeto Firebase exclusivo para testes.
 
-## Configuração no Render
+## Publicação oficial na Vercel
+
+**Aplicação:** https://brasil-adventure.vercel.app/  
+**Repositório:** https://github.com/ByteClub378/Prototipo
+
+A configuração em [`vercel.json`](../vercel.json) faz o encaminhamento de `/api/*` para a função [`api/index.js`](../api/index.js), que disponibiliza o Express. O frontend usa a API relativa `/api/v1` quando `VITE_API_URL` não é configurada. A Vercel usa o proxy de produção, reconhecido pela aplicação em `backend/src/app.js`.
+
+Configure as variáveis sensíveis exclusivamente no ambiente da hospedagem, jamais em commits. O domínio antigo `prototipo-gray-two.vercel.app` redireciona para a página inicial do domínio oficial. Cookies de sessão não são transferidos entre domínios diferentes.
+
+## Configuração legada no Render
 
 Para a arquitetura com Static Site e Web Service separados:
 
